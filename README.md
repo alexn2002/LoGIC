@@ -47,6 +47,16 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 - `demo_from_mtxs.py` — CLI utility to process `.mtx` covariance/unitary files; writes results to `mtxs_res/`.
 - `mtxs_cov/`, `mtxs_untry/` — sample matrix inputs used by `demo_from_mtxs.py`.
 
+## Authors
+
+- Alexander Naumann, Friedrich Schiller University Jena
+- Robin Strahlendorf, Friedrich Schiller University Jena
+
+## References
+
+- Reck, Michael, et al. "Experimental realization of any discrete unitary operator." Physical Review Letters 73.1 (1994): 58.
+- Clements, William R., et al. "Optimal design for universal multiport interferometers." Optica 3.12 (2016): 1460-1465.
+
 ## Notes
 
 - Requires Python 3.10+ and the `interferometer` package (installed via `requirements.txt`).

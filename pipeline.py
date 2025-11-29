@@ -30,13 +30,22 @@ def _normalize_instructions(bs_params, n_modes: int):
     """Convert interferometer tuples to (k, l, theta, phi) with 0-based indices."""
     instructions = []
     for entry in bs_params:
-        if len(entry) == 4:
-            k, l, theta, phi = entry
-        elif len(entry) == 3:
-            k, l, theta = entry
-            phi = 0.0
+        # Accept both tuples and beamsplitter objects from the interferometer package.
+        if hasattr(entry, "__len__"):
+            if len(entry) == 4:
+                k, l, theta, phi = entry
+            elif len(entry) == 3:
+                k, l, theta = entry
+                phi = 0.0
+            else:
+                raise ValueError(f"Unexpected beamsplitter tuple: {entry}")
         else:
-            raise ValueError(f"Unexpected beamsplitter tuple: {entry}")
+            k = getattr(entry, "k", getattr(entry, "i", getattr(entry, "mode1", None)))
+            l = getattr(entry, "l", getattr(entry, "j", getattr(entry, "mode2", None)))
+            theta = getattr(entry, "theta", getattr(entry, "angle", None))
+            phi = getattr(entry, "phi", getattr(entry, "phase", 0.0))
+            if k is None or l is None or theta is None:
+                raise TypeError(f"Unexpected beamsplitter object: {entry!r}")
 
         # The interferometer package often uses 1-based indexing; shift if needed.
         k_int = int(k)

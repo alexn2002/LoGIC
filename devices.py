@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Sequence, Tuple, Union
+import warnings
 
 import numpy as np
 import scipy.linalg as sla
@@ -111,10 +112,12 @@ class GaussianDevice:
         val = 0.5 * (np.trace(self.V) + np.dot(self.d, self.d)) - 0.5 * self.n
         return float(np.real_if_close(val))
 
-    def first_moments(self) -> np.ndarray:
+    def first_moments(self, tol: float = 1e-15) -> np.ndarray:
+        """Return expected photon numbers per mode; warn if Im part exceeds tol."""
         res = np.zeros(self.n, dtype=float)
+        max_imag = 0.0
         for k in range(self.n):
-            res[k] = (
+            val = (
                 0.5
                 * (
                     self.V[k, k]
@@ -123,6 +126,13 @@ class GaussianDevice:
                     + self.d[self.n + k] ** 2
                 )
                 - 0.5
+            )
+            max_imag = max(max_imag, abs(val.imag))
+            res[k] = val.real
+        if max_imag > tol:
+            warnings.warn(
+                f"first_moments: imaginary component magnitude {max_imag:.3e} exceeds tol={tol}",
+                RuntimeWarning,
             )
         return res
 

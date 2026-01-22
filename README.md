@@ -16,7 +16,7 @@ Run a basic simulation of a random squeezed input through a random unitary mesh:
 python demos/demo_random.py --modes 4 --eta 0.9 --topology Clements --seed 123
 ```
 
-Process covariance/unitary matrices from `demos/input_covariance_mtx` and `demos/interferometer_unitary_mtx`:
+Process covariance/symplectic matrices from `demos/input_covariance_mtx` and `demos/interferometer_symplectic`:
 
 ```bash
 python demos/demo_literature.py --input-dir demos/input_covariance_mtx --eta 0.9
@@ -44,8 +44,8 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 - `devices.py` — core `GaussianDevice` class, covariance validation, random squeezed-state helpers, and mesh builders.
 - `pipeline.py` — thin wrapper that decomposes a target unitary and feeds it through `GaussianDevice`.
 - `demos/demo_random.py` — minimal CLI demo for random meshes.
-- `demos/demo_literature.py` — CLI utility to process `.mtx` covariance/unitary files; writes results to `demos/output_covariance_mtx/`.
-- `demos/input_covariance_mtx/`, `demos/interferometer_unitary_mtx/` — sample matrix inputs used by `demos/demo_literature.py`.
+- `demos/demo_literature.py` — CLI utility to process `.mtx` covariance/symplectic files; writes results to `demos/output_covariance_mtx/`.
+- `demos/input_covariance_mtx/`, `demos/interferometer_symplectic/` — sample matrix inputs used by `demos/demo_literature.py`.
 
 ## Authors
 

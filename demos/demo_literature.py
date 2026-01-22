@@ -143,7 +143,7 @@ def compute_lossy_V(
     cov_filename: Path,
     eta_loss: float = 0.9,
     result_root: Path | None = None,
-    unitary_path: Path | None = None,
+    symplectic_path: Path | None = None,
     symplectic: bool = True,
     write_files: bool = True,
     return_results: bool = False,
@@ -158,11 +158,11 @@ def compute_lossy_V(
     V_eff = np.asarray(V)
     d = np.zeros(shape=(V.shape[0]))
 
-    if unitary_path is None:
-        unitary_path = PROJECT_ROOT / "demos" / "interferometer_unitary_mtx" / "matDFT25.mtx"
-    if not unitary_path.exists():
-        raise FileNotFoundError(f"Unitary matrix file not found: {unitary_path}")
-    M = mmread(str(unitary_path))
+    if symplectic_path is None:
+        symplectic_path = PROJECT_ROOT / "demos" / "interferometer_symplectic" / "symplectic.mtx"
+    if not symplectic_path.exists():
+        raise FileNotFoundError(f"Symplectic matrix file not found: {symplectic_path}")
+    M = mmread(str(symplectic_path))
     if symplectic:
         unitary_full = np.asarray(M, dtype=float)
         ortho_error = np.linalg.norm(unitary_full @ unitary_full.T - np.eye(unitary_full.shape[0]))
@@ -337,12 +337,13 @@ if __name__ == "__main__":
         help="Loss transmissivity eta applied when simulating the network (default: 0.9).",
     )
     parser.add_argument(
-        "--unitary-file",
-        "--unitary",
+        "--symplectic-file",
+        "--process-mtx-file",
+        "--symplectic-mtx-file",
         type=Path,
         default=None,
-        dest="unitary_file",
-        help="Explicit unitary .mtx file to use (default: ./demos/interferometer_unitary_mtx/matDFT25.mtx).",
+        dest="symplectic_file",
+        help="Explicit symplectic .mtx file to use (default: ./demos/interferometer_symplectic/symplectic.mtx).",
     )
     parser.add_argument(
         "--out-dir",
@@ -373,7 +374,7 @@ if __name__ == "__main__":
                 compute_lossy_V(
                     path,
                     eta_loss=args.eta_loss,
-                    unitary_path=args.unitary_file,
+                    symplectic_path=args.symplectic_file,
                     symplectic=not args.no_symplectic,
                     result_root=args.out_dir,
                 )
@@ -382,7 +383,7 @@ if __name__ == "__main__":
             compute_lossy_V(
                 cov_path,
                 eta_loss=args.eta_loss,
-                unitary_path=args.unitary_file,
+                symplectic_path=args.symplectic_file,
                 symplectic=not args.no_symplectic,
                 result_root=args.out_dir,
             )
@@ -393,7 +394,7 @@ if __name__ == "__main__":
             compute_lossy_V(
                 cov_path,
                 eta_loss=args.eta_loss,
-                unitary_path=args.unitary_file,
+                symplectic_path=args.symplectic_file,
                 symplectic=not args.no_symplectic,
                 result_root=args.out_dir,
             )

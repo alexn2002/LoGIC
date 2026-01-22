@@ -13,16 +13,16 @@ pip install -r requirements.txt
 Run a basic simulation of a random squeezed input through a random unitary mesh:
 
 ```bash
-python demo.py --modes 4 --eta 0.9 --topology Clements --seed 123
+python demos/demo_random.py --modes 4 --eta 0.9 --topology Clements --seed 123
 ```
 
-Process covariance/unitary matrices from the `mtxs_cov` and `mtxs_untry` folders:
+Process covariance/unitary matrices from `demos/input_covariance_mtx` and `demos/interferometer_unitary_mtx`:
 
 ```bash
-python demo_from_mtxs.py --cov mtxs_cov --eta-loss 0.9
+python demos/demo_literature.py --input-dir demos/input_covariance_mtx --eta 0.9
 ```
 
-Results land in `mtxs_res/` (ignored by git).
+Results land in `demos/output_covariance_mtx/` (ignored by git).
 
 ## API highlight
 
@@ -43,9 +43,9 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 
 - `devices.py` — core `GaussianDevice` class, covariance validation, random squeezed-state helpers, and mesh builders.
 - `pipeline.py` — thin wrapper that decomposes a target unitary and feeds it through `GaussianDevice`.
-- `demo.py` — minimal CLI demo for random meshes.
-- `demo_from_mtxs.py` — CLI utility to process `.mtx` covariance/unitary files; writes results to `mtxs_res/`.
-- `mtxs_cov/`, `mtxs_untry/` — sample matrix inputs used by `demo_from_mtxs.py`.
+- `demos/demo_random.py` — minimal CLI demo for random meshes.
+- `demos/demo_literature.py` — CLI utility to process `.mtx` covariance/unitary files; writes results to `demos/output_covariance_mtx/`.
+- `demos/input_covariance_mtx/`, `demos/interferometer_unitary_mtx/` — sample matrix inputs used by `demos/demo_literature.py`.
 
 ## Authors
 
@@ -60,4 +60,4 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 ## Notes
 
 - Requires Python 3.10+ and the `interferometer` package (installed via `requirements.txt`).
-- If you regenerate results, `mtxs_res/` will be overwritten; commit only the inputs you care about.
+- If you regenerate results, `demos/output_covariance_mtx/` will be overwritten; commit only the inputs you care about.

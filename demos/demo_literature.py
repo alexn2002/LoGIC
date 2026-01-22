@@ -19,7 +19,8 @@ if not hasattr(np, "complex_"):
 # ---------------------------------------------------------------------------
 TESTS_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_ROOT.parent
-RESULT_ROOT = TESTS_ROOT / "mtxs_res"
+RESULT_ROOT = PROJECT_ROOT / "demos" / "output_covariance_mtx"
+WL_RESULT_ROOT = PROJECT_ROOT / "demos" / "output_covariance_wl"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -37,9 +38,10 @@ def _cov_sort_key(path: Path) -> tuple[int, str]:
     return (0, path.name)
 
 
-def _reset_result_dirs():
+def _reset_result_dirs(result_root: Path | None = None):
+    root = result_root if result_root is not None else RESULT_ROOT
     for label in RESULT_LABELS:
-        target_dir = RESULT_ROOT / label
+        target_dir = root / label
         if target_dir.exists():
             for file in target_dir.glob("*.mtx"):
                 file.unlink()
@@ -62,6 +64,66 @@ def _convert_beamsplitters(bs_list):
             raise ValueError(f"Unexpected beamsplitter tuple: {entry}")
         instructions.append((int(k), int(l), float(theta), float(phi or 0.0)))
     return instructions
+
+
+def _format_real(value: float) -> str:
+    if value == 0.0:
+        return "0"
+    exp = int(np.floor(np.log10(abs(value))))
+    mant = value / (10 ** exp)
+    return f"{mant:.16f}*^{exp}"
+
+
+def _format_number(val: complex, tol: float = 1e-12) -> str:
+    real = float(np.real(val))
+    imag = float(np.imag(val))
+    if abs(imag) <= tol:
+        return _format_real(real)
+    if abs(real) <= tol:
+        return f"{_format_real(imag)} I"
+    sign = "+" if imag >= 0 else "-"
+    imag_str = f"{_format_real(abs(imag))} I"
+    return f"{_format_real(real)} {sign} {imag_str}"
+
+
+def _matrix_to_wl(matrix: np.ndarray) -> str:
+    rows = []
+    for row in matrix:
+        entries = ",".join(_format_number(v) for v in row)
+        rows.append("{" + entries + "}")
+    return "{" + ",".join(rows) + "}"
+
+
+def _mtx_sort_key(path: Path):
+    stem = path.stem
+    match = re.search(r"(N\d+)(\d+)$", stem)
+    if match:
+        prefix = match.group(1)
+        idx = int(match.group(2))
+        base = stem[: match.start(1)]
+        return (base, prefix, idx)
+    match = re.search(r"(\D*)(\d+)$", stem)
+    if match:
+        base = match.group(1)
+        idx = int(match.group(2))
+        return (base, "", idx)
+    return (stem, "", 0)
+
+
+def _write_wl_from_dir(mtx_dir: Path, output_path: Path) -> int:
+    if not mtx_dir.is_dir():
+        return 0
+    wl_matrices = []
+    for path in sorted(mtx_dir.glob("*.mtx"), key=_mtx_sort_key):
+        data = mmread(str(path))
+        arr = np.asarray(data.todense() if hasattr(data, "todense") else data, dtype=complex)
+        wl_matrices.append(_matrix_to_wl(arr))
+    if not wl_matrices:
+        return 0
+    content = "{\n" + ",\n".join(wl_matrices) + "\n}"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(content, encoding="utf-8")
+    return len(wl_matrices)
 
 
 def _unitary_from_instructions(instructions, n):
@@ -122,7 +184,7 @@ def compute_lossy_V(
     d = np.zeros(shape=(V.shape[0]))
 
     if unitary_path is None:
-        unitary_path = TESTS_ROOT / "mtxs_untry" / "matDFT25.mtx"
+        unitary_path = PROJECT_ROOT / "demos" / "interferometer_unitary_mtx" / "matDFT25.mtx"
     if not unitary_path.exists():
         raise FileNotFoundError(f"Unitary matrix file not found: {unitary_path}")
     M = mmread(str(unitary_path))
@@ -284,23 +346,36 @@ def compute_lossy_V(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate lossy covariance matrices for Reck/Clements decompositions.")
     parser.add_argument(
-        "--cov",
+        "--in-dir",
+        "--input-dir",
+        dest="in_dir",
         type=Path,
         default=None,
-        help="Path to a specific covariance .mtx file. If omitted, process all files in ./mtxs_cov.",
+        help="Path to covariance .mtx file or directory. If omitted, uses ./demos/input_covariance_mtx.",
     )
     parser.add_argument(
-        "--eta-loss",
+        "--eta",
+        "--loss",
         type=float,
         default=0.9,
         dest="eta_loss",
         help="Loss transmissivity eta applied when simulating the network (default: 0.9).",
     )
     parser.add_argument(
-        "--untry-file",
+        "--unitary-file",
+        "--unitary",
         type=Path,
         default=None,
-        help="Explicit unitary .mtx file to use (ignored if --cov points to covariances).",
+        dest="unitary_file",
+        help="Explicit unitary .mtx file to use (ignored if --input-dir points to covariances).",
+    )
+    parser.add_argument(
+        "--out-dir",
+        "--output-dir",
+        dest="out_dir",
+        type=Path,
+        default=None,
+        help="Directory for output .mtx files (default: ./demos/output_covariance_mtx).",
     )
     parser.add_argument(
         "--no-symplectic",
@@ -310,22 +385,48 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    _reset_result_dirs()
+    _reset_result_dirs(args.out_dir)
 
-    if args.cov is not None:
-        cov_path = args.cov
+    if args.in_dir is not None:
+        cov_path = args.in_dir
         if cov_path.is_dir():
             cov_files = sorted(cov_path.glob("*.mtx"), key=_cov_sort_key)
             if not cov_files:
                 raise FileNotFoundError(f"No .mtx files found in directory: {cov_path}")
             for path in cov_files:
                 print("\n=== Processing", path.stem, "===")
-                compute_lossy_V(path, eta_loss=args.eta_loss, unitary_path=args.untry_file, symplectic=not args.no_symplectic)
+                compute_lossy_V(
+                    path,
+                    eta_loss=args.eta_loss,
+                    unitary_path=args.unitary_file,
+                    symplectic=not args.no_symplectic,
+                    result_root=args.out_dir,
+                )
         else:
-            print("\n=== Processing", args.cov.stem, "===")
-            compute_lossy_V(args.cov, eta_loss=args.eta_loss, unitary_path=args.untry_file, symplectic=not args.no_symplectic)
+            print("\n=== Processing", cov_path.stem, "===")
+            compute_lossy_V(
+                cov_path,
+                eta_loss=args.eta_loss,
+                unitary_path=args.unitary_file,
+                symplectic=not args.no_symplectic,
+                result_root=args.out_dir,
+            )
     else:
-        cov_dir = TESTS_ROOT / "mtxs_cov"
+        cov_dir = PROJECT_ROOT / "demos" / "input_covariance_mtx"
         for cov_path in sorted(cov_dir.glob("*.mtx"), key=_cov_sort_key):
             print("\n=== Processing", cov_path.stem, "===")
-            compute_lossy_V(cov_path, eta_loss=args.eta_loss, unitary_path=args.untry_file, symplectic=not args.no_symplectic)
+            compute_lossy_V(
+                cov_path,
+                eta_loss=args.eta_loss,
+                unitary_path=args.unitary_file,
+                symplectic=not args.no_symplectic,
+                result_root=args.out_dir,
+            )
+
+    eta_tag = f"eta{int(round(args.eta_loss * 100)):03d}"
+    for label in RESULT_LABELS:
+        mtx_dir = (args.out_dir or RESULT_ROOT) / label
+        output_path = WL_RESULT_ROOT / f"{label}_ETA{eta_tag}.wl"
+        count = _write_wl_from_dir(mtx_dir, output_path)
+        if count:
+            print(f"[{label}] Wrote {count} matrices to {output_path}")

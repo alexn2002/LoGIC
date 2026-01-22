@@ -16,4 +16,4 @@ eggs/
 .idea/
 .vscode/
 .DS_Store
-mtxs_res/
+demos/output_covariance_mtx/

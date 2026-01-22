@@ -58,15 +58,8 @@ def _normalize_instructions(bs_params, n_modes: int):
     return instructions
 
 
-def get_Vout(
-    U: np.ndarray,
-    V0: np.ndarray,
-    d0: np.ndarray | None = None,
-    eta: float = 0.9,
-    topology: str = "Clements",
-    get_device: bool = False,
-):
-    """Propagate an input Gaussian state through a target unitary and loss channel."""
+def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, int, float, float]], np.ndarray]:
+    """Decompose a unitary into mesh instructions and output phases."""
     U = np.asarray(U, dtype=complex)
     n_modes = U.shape[0]
 
@@ -81,7 +74,22 @@ def get_Vout(
     bs_params_raw, phases = _extract_decomposition(decomp_fn(U))
     instructions = _normalize_instructions(bs_params_raw, n_modes)
     phases = np.asarray(phases, dtype=float)
+    return instructions, phases
 
+
+def get_Vout(
+    U: np.ndarray,
+    V0: np.ndarray,
+    d0: np.ndarray | None = None,
+    eta: float = 0.9,
+    topology: str = "Clements",
+    get_device: bool = False,
+):
+    """Propagate an input Gaussian state through a target unitary and loss channel."""
+    U = np.asarray(U, dtype=complex)
+    n_modes = U.shape[0]
+
+    instructions, phases = instructions_from_U(U, topology)
     if d0 is None:
         d0 = np.zeros(V0.shape[0], dtype=float)
 

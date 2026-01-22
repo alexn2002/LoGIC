@@ -43,6 +43,9 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 
 - `devices.py` — core `GaussianDevice` class, covariance validation, random squeezed-state helpers, and mesh builders.
 - `pipeline.py` — thin wrapper that decomposes a target unitary and feeds it through `GaussianDevice`.
+- `demos/`directory containing different code demonstrations and CLIs. Read the `demos/user_manual.md` for more information.
+- `demos/user_manual.md` — supplementary sheet for the `demos/` directory
+- `demos/demo_devices.py` — introducionary demo for devices.py
 - `demos/demo_pipeline.py` — minimal CLI demo for random meshes.
 - `demos/demo_literature.py` — CLI utility to process `.mtx` covariance/symplectic files; writes results to `demos/output_covariance_mtx/`.
 - `demos/input_covariance_mtx/`, `demos/interferometer_symplectic/` — sample matrix inputs used by `demos/demo_literature.py`.

@@ -42,6 +42,13 @@ Flags and defaults
 - --modes: number of spatial modes (default 4)
 - --seed: RNG seed for reproducibility (default 123)
 
+### Output
+The script prints:
+- Mesh topology, modes, and eta
+- Total photon number before and after the interferometer
+- First moments (per-mode photon expectations)
+- Covariance matrix shape
+
 ### Code explanation
 1) Build a Haar-random unitary U via QR decomposition:
    - Key lines:
@@ -67,13 +74,6 @@ Flags and defaults
      print("First moments:", output_dev.first_moments())
      print("Covariance shape:", V_out.shape)
      ```
-
-### Output
-The script prints:
-- Mesh topology, modes, and eta
-- Total photon number before and after the interferometer
-- First moments (per-mode photon expectations)
-- Covariance matrix shape
 
 -----------------------------------------------------------------------
 demo_literature.py
@@ -134,12 +134,12 @@ Flags and defaults
 ### Output
 For each input covariance matrix:
 - A lossy output covariance matrix (.mtx) for each topology:
-  demos/output_covariance_mtx/Reck/LossyReck<stem>.mtx
-  demos/output_covariance_mtx/Clements/LossyClements<stem>.mtx
+  demos/output_covariance_mtx/Reck/Reck_<file number>_ETAetaXYZ.mtx
+  demos/output_covariance_mtx/Clements/Clements_<file number>_ETAetaXYZ.mtx
 - A text file with photon statistics:
-  demos/output_covariance_mtx/<Topology>/moments_<Topology>_<stem>.txt
+  demos/logs/<Topology>/moments_<Topology>_<stem>.txt
 - A running summary file:
-  demos/output_covariance_mtx/<Topology>/N_total.txt
+  demos/logs/<Topology>/N_total.txt
 
 Additionally, a Wolfram Language list file is created after the run:
 - demos/output_covariance_wl/Reck_ETAetaXYZ.wl

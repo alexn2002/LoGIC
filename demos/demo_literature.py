@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 import sys
 
@@ -19,6 +20,7 @@ if not hasattr(np, "complex_"):
 TESTS_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_ROOT.parent
 RESULT_ROOT = PROJECT_ROOT / "demos" / "output_covariance_mtx"
+LOG_ROOT = PROJECT_ROOT / "demos" / "logs"
 WL_RESULT_ROOT = PROJECT_ROOT / "demos" / "output_covariance_wl"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -31,15 +33,19 @@ RESULT_LABELS = ("Reck", "Clements")
 
 def _reset_result_dirs(result_root: Path | None = None):
     root = result_root if result_root is not None else RESULT_ROOT
+    log_root = LOG_ROOT
     for label in RESULT_LABELS:
         target_dir = root / label
         if target_dir.exists():
             for file in target_dir.glob("*.mtx"):
                 file.unlink()
-            for file in target_dir.glob("N_total*.txt"):
-                file.unlink()
         else:
             target_dir.mkdir(parents=True, exist_ok=True)
+    if log_root.exists():
+        for file in log_root.glob("**/*.txt"):
+            file.unlink()
+    else:
+        log_root.mkdir(parents=True, exist_ok=True)
 
 
 def _convert_beamsplitters(bs_list):
@@ -99,6 +105,11 @@ def _write_wl_from_dir(mtx_dir: Path, output_path: Path) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding="utf-8")
     return len(wl_matrices)
+
+
+def _extract_input_index(stem: str) -> str:
+    match = re.search(r"(\\d+)$", stem)
+    return match.group(1) if match else stem
 
 
 def _unitary_from_instructions(instructions, n):
@@ -274,14 +285,18 @@ def compute_lossy_V(
             res_dir = target_root / label
             res_dir.mkdir(parents=True, exist_ok=True)
             stem = cov_path.stem
-            #V_save = np.real_if_close(V_lossy)
-            mmwrite(res_dir / f"Lossy{label}{stem}.mtx", V_lossy)
+            file_idx = _extract_input_index(stem)
+            eta_tag = f"eta{int(round(eta_loss * 100)):03d}"
+            out_name = f"{label}_{file_idx}_ETA{eta_tag}.mtx"
+            mmwrite(res_dir / out_name, V_lossy)
             print(f"[{label}] Lossy network photon number (eta={eta_loss:.2f}):", float(np.real_if_close(lossy.exp_photon_number())))
             # Save photon numbers and first moments with full precision
             def _fmt(arr):
                 return "[" + ",".join(f"{float(x):.17g}" for x in np.ravel(arr)) + "]"
 
-            stats_path = res_dir / f"moments_{label}_{stem}.txt"
+            log_dir = LOG_ROOT / label
+            log_dir.mkdir(parents=True, exist_ok=True)
+            stats_path = log_dir / f"moments_{label}_{stem}.txt"
             with stats_path.open("w", encoding="utf-8") as fh:
                 fh.write(f"n_in={n_in:.17g}\n")
                 fh.write(f"first_in={_fmt(first_in)}\n")
@@ -290,7 +305,7 @@ def compute_lossy_V(
                 fh.write(f"n_out_lossy={n_out_lossy:.17g}\n")
                 fh.write(f"first_out_lossy={_fmt(first_out_lossy)}\n")
             # Append total photon number summary
-            totals_path = res_dir / "N_total.txt"
+            totals_path = log_dir / "N_total.txt"
             with totals_path.open("a", encoding="utf-8") as fh:
                 fh.write(f"{stem}, {n_out_lossy:.17g}\n")
         return {

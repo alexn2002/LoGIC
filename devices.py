@@ -98,7 +98,7 @@ class GaussianDevice:
     def __post_init__(self) -> None:
         d_real = np.asarray(self.d, dtype=float).reshape(-1)
         V_real = np.asarray(self.V, dtype=float)
-        # validate_covariance(V_real, d_real)  # optional
+        validate_covariance(V_real, d_real)
         self.n = V_real.shape[0] // 2
         # keep complex dtype to preserve phase information through the network
         self.d = np.asarray(self.d, dtype=complex).reshape(-1)

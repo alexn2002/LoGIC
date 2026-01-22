@@ -1,13 +1,100 @@
 # LoGIC - Demos User Manual
 
-This manual provides a detailed, user-friendly guide for the demo scripts. It is more complete than the README and aims to answer all common questions.
-
 Contents
-- demo_random.py (introductory: random unitary + random squeezed input)
+- demo_devices.py (introductory: direct GaussianDevice usage, no pipeline)
+- demo_pipeline.py (introductory: random unitary + random squeezed input)
 - demo_literature.py (batch processing of input covariance matrices, optional Wolfram Language export)
 
 -----------------------------------------------------------------------
-demo_random.py
+demo_devices.py
+-----------------------------------------------------------------------
+
+Purpose
+An introductory demo that uses devices.GaussianDevice directly (no pipeline). It shows how to:
+- build a random squeezed input state
+- generate a random instruction list
+- compute moments before and after the interferometer
+- compute an effective loss curve
+- write logs and save a plot
+
+Dependencies
+- Internal: devices.py
+- External: numpy, scipy, interferometer, matplotlib (for plotting)
+
+### How to use
+Full example:
+
+```
+python ./demos/demo_devices.py --modes 4 --eta 0.9 --topology Clements --seed 123
+```
+
+Minimal example (uses defaults):
+
+```
+python ./demos/demo_devices.py --eta 0.9
+```
+
+Help:
+
+```
+python ./demos/demo_devices.py --h
+```
+
+Flags and defaults
+- --modes: number of spatial modes (default 4)
+- --eta: loss transmissivity (default 0.9)
+- --topology: Clements or Reck (default Clements)
+- --seed: RNG seed for reproducibility (default 123)
+
+### Code explanation
+1) Build a random squeezed vacuum input:
+   - Key lines:
+     ```python
+     d_in, V_in = random_squeezed_vacuum(args.modes, rng=rng)
+     ```
+2) Build a random instruction list for the mesh:
+   - Key lines:
+     ```python
+     instructions = build_instructions(args.modes, topology, rng=rng, include_phases=False)
+     output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
+     ```
+3) Initialize GaussianDevice and compute input moments:
+   - Key lines:
+     ```python
+     device = GaussianDevice(d_in.copy(), V_in.copy(), instructions=instructions)
+     n_in = device.exp_photon_number()
+     first_in = device.first_moments()
+     second_in = device.second_moments()
+     ```
+4) Apply the network and output phases, then compute output moments:
+   - Key lines:
+     ```python
+     device.apply_network(eta=args.eta)
+     device.apply_output_phases(output_phases)
+     n_out = device.exp_photon_number()
+     first_out = device.first_moments()
+     second_out = device.second_moments()
+     ```
+5) Compute an effective loss curve:
+   - Key lines:
+     ```python
+     etas, n_vac, curves = effective_loss_curve(args.modes, rng=rng)
+     ```
+6) Write logs and save the plot:
+   - Key lines:
+     ```python
+     log_path = PROJECT_ROOT / "demos" / "logs" / "devices_demo" / "devices_demo_..."
+     plot_path = PROJECT_ROOT / "demos" / "plots" / "effective_loss_..."
+     ```
+
+### Output
+- Logs:
+  demos/logs/devices_demo/devices_demo_<Topology>_etaXYZ.txt
+- Plot:
+  demos/plots/effective_loss_<Topology>_etaXYZ.png
+
+-----------------------------------------------------------------------
+demo_pipeline.py
 -----------------------------------------------------------------------
 
 Purpose
@@ -21,19 +108,19 @@ Dependencies
 Full example:
 
 ```
-python ./demos/demo_random.py --eta 0.9 --topology Clements --modes 4 --seed 42
+python ./demos/demo_pipeline.py --eta 0.9 --topology Clements --modes 4 --seed 42
 ```
 
 Minimal example (uses defaults):
 
 ```
-python ./demos/demo_random.py --eta 0.9
+python ./demos/demo_pipeline.py --eta 0.9
 ```
 
 Help:
 
 ```
-python ./demos/demo_random.py --h
+python ./demos/demo_pipeline.py --h
 ```
 
 Flags and defaults

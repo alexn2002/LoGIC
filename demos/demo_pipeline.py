@@ -42,10 +42,30 @@ def main():
     input_dev = GaussianDevice(d0.copy(), V0.copy(), instructions=()) # store the input state for reference
 
     d_out, V_out, output_dev = get_Vout(U, V0, d0=d0, eta=args.eta, topology=args.topology, get_device=True)
+
+    log_dir = PROJECT_ROOT / "demos" / "logs" / "demo_pipeline"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"demo_pipeline_{args.topology}_eta{int(round(args.eta * 100)):03d}.txt"
+    log_path.write_text(
+        "\n".join(
+            [
+                f"topology={args.topology}",
+                f"modes={args.modes}",
+                f"eta={args.eta:.6f}",
+                f"n_in={float(np.real_if_close(input_dev.exp_photon_number())):.17g}",
+                f"n_out={float(np.real_if_close(output_dev.exp_photon_number())):.17g}",
+                f"first_moments={output_dev.first_moments()}",
+                f"covariance_shape={V_out.shape}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
     print(f"Mesh topology: {args.topology}, modes: {args.modes}, eta={args.eta}")
     print("Input photon number:", float(np.real_if_close(input_dev.exp_photon_number())))
     print("Output photon number:", float(np.real_if_close(output_dev.exp_photon_number())))
     print("First moments:", output_dev.first_moments())
+    print("Wrote log:", log_path)
 
 
 if __name__ == "__main__":

@@ -89,7 +89,7 @@ Flags and defaults
 
 ### Output
 - Logs:
-  demos/logs/devices_demo/devices_demo_<Topology>_etaXYZ.txt
+  demos/logs/demo_devices/demo_devices_<Topology>_etaXYZ.txt
 - Plot:
   demos/plots/effective_loss_<Topology>_etaXYZ.png
 
@@ -135,6 +135,8 @@ The script prints:
 - Total photon number before and after the interferometer
 - First moments (per-mode photon expectations)
 - Covariance matrix shape
+It also writes a log file:
+- demos/logs/demo_pipeline/demo_pipeline_<Topology>_etaXYZ.txt
 
 ### Code explanation
 1) Build a Haar-random unitary U via QR decomposition:
@@ -224,9 +226,9 @@ For each input covariance matrix:
   demos/output_covariance_mtx/Reck/Reck_<file number>_ETAetaXYZ.mtx
   demos/output_covariance_mtx/Clements/Clements_<file number>_ETAetaXYZ.mtx
 - A text file with photon statistics:
-  demos/logs/<Topology>/moments_<Topology>_<stem>.txt
+  demos/logs/demo_literature/<Topology>/moments_<Topology>_<stem>.txt
 - A running summary file:
-  demos/logs/<Topology>/N_total.txt
+  demos/logs/demo_literature/<Topology>/N_total.txt
 
 Additionally, a Wolfram Language list file is created after the run:
 - demos/output_covariance_wl/Reck_ETAetaXYZ.wl

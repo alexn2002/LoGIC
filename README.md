@@ -5,8 +5,8 @@ Lightweight tools for propagating Gaussian states through programmable interfero
 ## Quick start
 
 ```bash
-python -m venv .venv
-.\.venv\Scripts\activate
+python -m venv venv
+.\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -63,4 +63,4 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 ## Notes
 
 - Requires Python 3.10+ and the `interferometer` package (installed via `requirements.txt`).
-- If you regenerate results, `demos/output_covariance_mtx/` will be overwritten; commit only the inputs you care about.
+- If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.

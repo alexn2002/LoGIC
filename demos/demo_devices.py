@@ -102,12 +102,12 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 6) Write logs and plot
     # ------------------------------------------------------------------
-    logs_dir = PROJECT_ROOT / "demos" / "logs" / "devices_demo"
+    logs_dir = PROJECT_ROOT / "demos" / "logs" / "demo_devices"
     plots_dir = PROJECT_ROOT / "demos" / "plots"
     _ensure_dir(logs_dir)
     _ensure_dir(plots_dir)
 
-    log_path = logs_dir / f"devices_demo_{topology}_eta{int(round(args.eta * 100)):03d}.txt"
+    log_path = logs_dir / f"demo_devices_{topology}_eta{int(round(args.eta * 100)):03d}.txt"
     _write_text(
         log_path,
         "\n".join(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import re
 from pathlib import Path
 import sys
 
@@ -28,14 +27,6 @@ from devices import GaussianDevice
 import interferometer as itf
 
 RESULT_LABELS = ("Reck", "Clements")
-
-
-def _cov_sort_key(path: Path) -> tuple[int, str]:
-    """Sort covariance files numerically by trailing digits if present."""
-    m = re.search(r"(\d+)\.mtx$", path.name)
-    if m:
-        return (int(m.group(1)), path.name)
-    return (0, path.name)
 
 
 def _reset_result_dirs(result_root: Path | None = None):
@@ -94,27 +85,11 @@ def _matrix_to_wl(matrix: np.ndarray) -> str:
     return "{" + ",".join(rows) + "}"
 
 
-def _mtx_sort_key(path: Path):
-    stem = path.stem
-    match = re.search(r"(N\d+)(\d+)$", stem)
-    if match:
-        prefix = match.group(1)
-        idx = int(match.group(2))
-        base = stem[: match.start(1)]
-        return (base, prefix, idx)
-    match = re.search(r"(\D*)(\d+)$", stem)
-    if match:
-        base = match.group(1)
-        idx = int(match.group(2))
-        return (base, "", idx)
-    return (stem, "", 0)
-
-
 def _write_wl_from_dir(mtx_dir: Path, output_path: Path) -> int:
     if not mtx_dir.is_dir():
         return 0
     wl_matrices = []
-    for path in sorted(mtx_dir.glob("*.mtx"), key=_mtx_sort_key):
+    for path in sorted(mtx_dir.glob("*.mtx")):
         data = mmread(str(path))
         arr = np.asarray(data.todense() if hasattr(data, "todense") else data, dtype=complex)
         wl_matrices.append(_matrix_to_wl(arr))
@@ -367,7 +342,7 @@ if __name__ == "__main__":
         type=Path,
         default=None,
         dest="unitary_file",
-        help="Explicit unitary .mtx file to use (ignored if --input-dir points to covariances).",
+        help="Explicit unitary .mtx file to use (default: ./demos/interferometer_unitary_mtx/matDFT25.mtx).",
     )
     parser.add_argument(
         "--out-dir",
@@ -390,7 +365,7 @@ if __name__ == "__main__":
     if args.in_dir is not None:
         cov_path = args.in_dir
         if cov_path.is_dir():
-            cov_files = sorted(cov_path.glob("*.mtx"), key=_cov_sort_key)
+            cov_files = sorted(cov_path.glob("*.mtx"))
             if not cov_files:
                 raise FileNotFoundError(f"No .mtx files found in directory: {cov_path}")
             for path in cov_files:
@@ -413,7 +388,7 @@ if __name__ == "__main__":
             )
     else:
         cov_dir = PROJECT_ROOT / "demos" / "input_covariance_mtx"
-        for cov_path in sorted(cov_dir.glob("*.mtx"), key=_cov_sort_key):
+        for cov_path in sorted(cov_dir.glob("*.mtx")):
             print("\n=== Processing", cov_path.stem, "===")
             compute_lossy_V(
                 cov_path,

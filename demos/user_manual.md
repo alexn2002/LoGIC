@@ -10,6 +10,18 @@ Please note: To change the available parameters of this demo (```eta``` - loss c
 python ./demos/demo_random.py --eta 0.9 --topology Clements --modes 4 --seed 42
 ```
 
+or minimal
+
+```
+python ./demos/demo_random.py --eta 0.9
+```
+
+for help run
+
+```python
+python ./demos/demo_random.py --h
+```
+
 change the parameter values as desired. This command alone is sufficient to run the demo.
 
 ### Code explanation
@@ -70,13 +82,45 @@ This demos output is in the form of print outs produced by the previously refere
 
 ## demo_literature.py
 
-This demo contains the code to generate the data for figure 7 in ```Mauro D'Archille et al. 2026``` (unpublished as of 22th Jan. 2026, citation will appear here). 
+This demo contains the code to generate the data for figure 7 in ```Mauro D'Archille et al. 2026``` (unpublished as of 22th Jan. 2026, citation will appear here).
 
 ### How to use
 Internal code dependencies: ```devices.py```.
 
-This demo offers an indepent workflow from pipeline.py which is intended to be convinient to work with but less introductory than the previous demo. Argument parsers are provided. **Run the following command in your terminal**
+This demo offers an indepent workflow from pipeline.py which is intended to be convinient to work with but less introductory than the previous demo. Argument parsers are provided to change the input directory with ```--in-dir```, the output directory with ```--out-dir```, the loss channel transmitivity with ```--eta```, the target unitary according to which the multimode interferometer is constructed wtih ```-unitary-file```. **Run the following command in your terminal**
 
 ```
-python ./demos/demo_literature.py -- 0.9 --topology Clements --modes 4 --seed 42
+python ./demos/demo_literature.py --eta 0.9 --in-dir ./demos/input_covariance_mtx --out-dir ./demos/output_covariance_mtx --unitary-file demos/interferometer_unitary_mtx/matDFT25.mtx
 ```
+
+or minimal
+
+```
+python ./demos/demo_literature.py --eta 0.9
+```
+
+for help run
+
+```python
+python ./demos/demo_literature.py --h
+```
+
+In the related literature multiple covariance matrices (representing different time steps of a physical system) had to be processed by the same multimode interferometer. Therefore, ```demo_literature``` accepts multiple ```.mtx``` files inside the input directory of ```--in-dir``` and will compute the output which is stored as an mtx file ```--out-dir``` for each input accordingly. 
+
+Please Note: A ```.wl``` will be generated containing a list of all output matrices in the order they were processed (file name order) in wolfram language form. This file can be directly imported to wolfram alpha and was the data format used for follow computations within the related literature.
+
+We also added an option ```--no-symplectic``` if the user decides to use all provided matrices in shape $ n\times n $ for bases $\{a_{i}\}_{i=1..n}$ instead of $2n \times 2n$ matrices of the symplectic formalism. Note that the $2n\times 2n$ interferometer symplectic $S$ and the $n\times n$ interferpmeter unitary $U$  is related via
+
+$$ U = X + \mathrm{i}Y \Leftrightarrow S=
+\begin{pmatrix}
+    X & -Y\\
+    Y & X
+\end{pmatrix} $$
+
+the code expects the file of ```--unitary-file``` to contain a $2n \times 2n$ symplectic by default.
+
+**All matrix files are expected in ```.mtx``` format.**
+
+## Code explanation
+
+explain very user friendly what "compute_lossy_V" does step by step with code snippets. 

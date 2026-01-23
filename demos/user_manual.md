@@ -13,7 +13,7 @@ Purpose
 An introductory demo that uses devices.GaussianDevice directly (no pipeline). It shows how to:
 - build a random squeezed input state
 - generate a random instruction list
-- compute moments before and after the interferometer
+- compute cumulants before and after the interferometer
 - compute an effective loss curve
 - write logs and save a plot
 
@@ -52,28 +52,28 @@ Flags and defaults
      ```python
      d_in, V_in = random_squeezed_vacuum(args.modes, rng=rng)
      ```
-2) Build a random instruction list for the mesh:
+2) Build a random instruction list for the beam splitter network:
    - Key lines:
      ```python
      instructions = build_instructions(args.modes, topology, rng=rng, include_phases=False)
      output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
      ```
-3) Initialize GaussianDevice and compute input moments:
+3) Initialize GaussianDevice and compute input cumulants:
    - Key lines:
      ```python
      device = GaussianDevice(d_in.copy(), V_in.copy(), instructions=instructions)
      n_in = device.exp_photon_number()
-     first_in = device.first_moments()
-     second_in = device.second_moments()
+     first_in = device.first_cumulants()
+     second_in = device.second_cumulants()
      ```
-4) Apply the network and output phases, then compute output moments:
+4) Apply the network and output phases, then compute output cumulants:
    - Key lines:
      ```python
      device.apply_network(eta=args.eta)
      device.apply_output_phases(output_phases)
      n_out = device.exp_photon_number()
-     first_out = device.first_moments()
-     second_out = device.second_moments()
+     first_out = device.first_cumulants()
+     second_out = device.second_cumulants()
      ```
 5) Compute an effective loss curve:
    - Key lines:
@@ -131,9 +131,9 @@ Flags and defaults
 
 ### Output
 The script prints:
-- Mesh topology, modes, and eta
+- Beam splitter network topology, modes, and eta
 - Total photon number before and after the interferometer
-- First moments (per-mode photon expectations)
+- First cumulants (per-mode photon expectations)
 - Covariance matrix shape
 It also writes a log file:
 - demos/logs/demo_pipeline/demo_pipeline_<Topology>_etaXYZ.txt
@@ -149,7 +149,7 @@ It also writes a log file:
      ```python
      d0, V0 = random_squeezed_vacuum(args.modes, rng=rng)
      ```
-3) Decompose U into a beamsplitter mesh and propagate the state:
+3) Decompose U into a beam splitter network and propagate the state:
    - The decomposition and propagation are handled inside get_Vout().
    - Key lines:
      ```python
@@ -160,7 +160,7 @@ It also writes a log file:
      ```python
      print("Input photon number:", float(np.real_if_close(input_dev.exp_photon_number())))
      print("Output photon number:", float(np.real_if_close(output_dev.exp_photon_number())))
-     print("First moments:", output_dev.first_moments())
+     print("First cumulants:", output_dev.first_cumulants())
      print("Covariance shape:", V_out.shape)
      ```
 
@@ -225,7 +225,7 @@ For each input covariance matrix:
 - A lossy output covariance matrix (.mtx) for each topology:
   demos/output_covariance_mtx/Reck/Reck_<file number>_ETAetaXYZ.mtx
   demos/output_covariance_mtx/Clements/Clements_<file number>_ETAetaXYZ.mtx
-- A text file with photon statistics:
+- A text file with photon statistics (cumulants):
   demos/logs/demo_literature/<Topology>/moments_<Topology>_<stem>.txt
 - A running summary file:
   demos/logs/demo_literature/<Topology>/N_total.txt

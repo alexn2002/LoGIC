@@ -27,11 +27,16 @@ def _haar_unitary(n: int, rng: np.random.Generator) -> np.ndarray:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Simple demo: propagate a squeezed vacuum through a random mesh.")
+    parser = argparse.ArgumentParser(description="Simple demo: propagate a squeezed vacuum through a random beam splitter network.")
     parser.add_argument("--modes", type=int, default=4, help="Number of spatial modes.")
     parser.add_argument("--eta", type=float, default=0.9, help="Amplitude transmission for each beamsplitter.")
     parser.add_argument(
-        "--topology", type=str, default="Clements", choices=("Clements", "Reck", "clements", "reck"), help="Mesh topology."
+        "--topology",
+        type=str,
+        default="Clements",
+        choices=("Clements", "Reck", "clements", "reck"),
+        help="Beam splitter network topology.",
+    )
     )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
@@ -54,17 +59,17 @@ def main():
                 f"eta={args.eta:.6f}",
                 f"n_in={float(np.real_if_close(input_dev.exp_photon_number())):.17g}",
                 f"n_out={float(np.real_if_close(output_dev.exp_photon_number())):.17g}",
-                f"first_moments={output_dev.first_moments()}",
+                f"first_cumulants={output_dev.first_cumulants()}",
                 f"covariance_shape={V_out.shape}",
             ]
         ),
         encoding="utf-8",
     )
 
-    print(f"Mesh topology: {args.topology}, modes: {args.modes}, eta={args.eta}")
+    print(f"Beam splitter network topology: {args.topology}, modes: {args.modes}, eta={args.eta}")
     print("Input photon number:", float(np.real_if_close(input_dev.exp_photon_number())))
     print("Output photon number:", float(np.real_if_close(output_dev.exp_photon_number())))
-    print("First moments:", output_dev.first_moments())
+    print("First cumulants:", output_dev.first_cumulants())
     print("Wrote log:", log_path)
 
 

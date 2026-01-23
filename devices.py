@@ -112,7 +112,7 @@ class GaussianDevice:
         val = 0.5 * (np.trace(self.V) + np.dot(self.d, self.d)) - 0.5 * self.n
         return float(np.real_if_close(val))
 
-    def first_moments(self, tol: float = 1e-15) -> np.ndarray:
+    def first_cumulants(self, tol: float = 1e-15) -> np.ndarray:
         """Return expected photon numbers per mode; warn if Im part exceeds tol."""
         res = np.zeros(self.n, dtype=float)
         max_imag = 0.0
@@ -131,14 +131,14 @@ class GaussianDevice:
             res[k] = val.real
         if max_imag > tol:
             warnings.warn(
-                f"first_moments: imaginary component magnitude {max_imag:.3e} exceeds tol={tol}",
+                f"first_cumulants: imaginary component magnitude {max_imag:.3e} exceeds tol={tol}",
                 RuntimeWarning,
             )
         return res
 
-    def second_moments(self) -> np.ndarray:
+    def second_cumulants(self) -> np.ndarray:
         S = np.zeros((self.n, self.n), dtype=float)
-        nbar = self.first_moments()
+        nbar = self.first_cumulants()
         for k in range(self.n):
             for l in range(self.n):
                 V_xx = self.V[k, l]
@@ -246,11 +246,11 @@ class GaussianDevice:
 
     def get_unitary(self) -> np.ndarray:
         """
-        Return the n x n unitary corresponding to the beamsplitter mesh only.
+        Return the n x n unitary corresponding to the beamsplitter network only.
 
         This uses the same beamsplitter convention as ``interferometer``,
         so if `instructions` came from `triangle_decomposition` or
-        `square_decomposition`, this matrix should match the internal mesh
+        `square_decomposition`, this matrix should match the internal network
         unitary (up to output phases).
         """
         complex_needed = any(len(inst) == 4 and inst[3] not in (0, None) for inst in self.instructions)
@@ -418,7 +418,7 @@ def random_squeezed_vacuum(
 def build_instructions(
     n: int, topology: str, rng: np.random.Generator | None = None, include_phases: bool = False
 ) -> Tuple[Instruction, ...]:
-    """Generate a random mesh of beamsplitter instructions for a target topology."""
+    """Generate a random beamsplitter network for a target topology."""
     rng = rng or np.random.default_rng()
     instructions: list[Instruction] = []
     if topology.lower() == "reck":
@@ -426,7 +426,7 @@ def build_instructions(
             for j in range(1, k):
                 instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
     elif topology.lower() == "clements":
-        # simple random mesh: alternating layers
+        # simple random beamsplitter network: alternating layers
         for _ in range(n // 2):
             for k in range(0, n - 1, 2):
                 if include_phases:
@@ -450,7 +450,7 @@ def build_instructions(
 
 
 def effective_loss_curve(n: int, rng: np.random.Generator | None = None):
-    """Compute expected photon number vs loss for random meshes."""
+    """Compute expected photon number vs loss for random beamsplitter networks."""
     rng = rng or np.random.default_rng(123)
     z = np.exp(-(rng.random(n) * 0.5 + 0.3))
     d, V = squeezed_vacuum(z)

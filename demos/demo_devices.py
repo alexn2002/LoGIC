@@ -52,13 +52,13 @@ def _plot_loss_curve(etas: np.ndarray, curves: dict[str, np.ndarray], out_path: 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Intro demo using devices.GaussianDevice directly (no pipeline).")
     parser.add_argument("--modes", type=int, default=4, help="Number of spatial modes.")
-    parser.add_argument("--eta", type=float, default=0.9, help="Loss transmissivity for the mesh.")
+    parser.add_argument("--eta", type=float, default=0.9, help="Loss transmissivity for the beam splitter network.")
     parser.add_argument(
         "--topology",
         type=str,
         default="Clements",
         choices=("Clements", "Reck", "clements", "reck"),
-        help="Mesh topology.",
+        help="Beam splitter network topology.",
     )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
@@ -82,8 +82,8 @@ def main() -> None:
     # ------------------------------------------------------------------
     device = GaussianDevice(d_in.copy(), V_in.copy(), instructions=instructions)
     n_in = device.exp_photon_number()
-    first_in = device.first_moments()
-    second_in = device.second_moments()
+    first_in = device.first_cumulants()
+    second_in = device.second_cumulants()
 
     # ------------------------------------------------------------------
     # 4) Apply the network and output phases, compute "out" moments
@@ -91,8 +91,8 @@ def main() -> None:
     device.apply_network(eta=args.eta)
     device.apply_output_phases(output_phases)
     n_out = device.exp_photon_number()
-    first_out = device.first_moments()
-    second_out = device.second_moments()
+    first_out = device.first_cumulants()
+    second_out = device.second_cumulants()
 
     # ------------------------------------------------------------------
     # 5) Compute effective loss curve
@@ -116,11 +116,11 @@ def main() -> None:
                 f"modes={args.modes}",
                 f"eta={args.eta:.6f}",
                 f"n_in={n_in:.17g}",
-                f"first_in={_format_array(first_in)}",
-                f"second_in={_format_array(second_in)}",
+                f"first_cumulants_in={_format_array(first_in)}",
+                f"second_cumulants_in={_format_array(second_in)}",
                 f"n_out={n_out:.17g}",
-                f"first_out={_format_array(first_out)}",
-                f"second_out={_format_array(second_out)}",
+                f"first_cumulants_out={_format_array(first_out)}",
+                f"second_cumulants_out={_format_array(second_out)}",
                 f"n_vac={n_vac:.17g}",
                 f"etas={_format_array(etas)}",
                 f"curve_Reck={_format_array(curves.get('Reck', np.array([])))}",

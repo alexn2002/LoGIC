@@ -113,7 +113,7 @@ def _extract_input_index(stem: str) -> str:
 
 
 def _unitary_from_instructions(instructions, n):
-    """Reconstruct the mesh unitary using the SAME convention
+    """Reconstruct the beam splitter network unitary using the SAME convention
     as GaussianDevice._bs_unitary_block().
 
         B(theta, phi) = [[ e^{i phi} cos theta,   -sin theta ],
@@ -241,9 +241,9 @@ def compute_lossy_V(
         # ------------------------------------------------------------------
         # Unitary reconstruction
         # ------------------------------------------------------------------
-        M_mesh = _unitary_from_instructions(instructions, n_modes)
+        M_network = _unitary_from_instructions(instructions, n_modes)
         phase_mat = np.diag(np.exp(1j * phases)) if phases is not None and phases.size > 0 else None
-        M_total = phase_mat @ M_mesh if phase_mat is not None else M_mesh
+        M_total = phase_mat @ M_network if phase_mat is not None else M_network
 
         diff_instr = np.linalg.norm(M_total - unitary_block)
         print(f"[{label}] ||unitary_from_instructions - target||_F={diff_instr:.3e}")
@@ -256,9 +256,9 @@ def compute_lossy_V(
 
         # Input statistics (before network)
         n_in = float(device.exp_photon_number())
-        first_in = device.first_moments()
+        first_in = device.first_cumulants()
 
-        # Apply mesh and phases
+        # Apply network and phases
         device.apply_network(eta=1.0)
         lossy.apply_network(eta=eta_loss)
         if phases is not None and phases.size > 0:
@@ -270,9 +270,9 @@ def compute_lossy_V(
 
         # Output statistics
         n_out_lossless = float(np.real_if_close(device.exp_photon_number()))
-        first_out_lossless = device.first_moments()
+        first_out_lossless = device.first_cumulants()
         n_out_lossy = float(np.real_if_close(lossy.exp_photon_number()))
-        first_out_lossy = lossy.first_moments()
+        first_out_lossy = lossy.first_cumulants()
 
         S_total = _unitary_to_symplectic(M_total)
         target_local = S_total @ V_eff @ S_total.T
@@ -299,11 +299,11 @@ def compute_lossy_V(
             stats_path = log_dir / f"moments_{label}_{stem}.txt"
             with stats_path.open("w", encoding="utf-8") as fh:
                 fh.write(f"n_in={n_in:.17g}\n")
-                fh.write(f"first_in={_fmt(first_in)}\n")
+                fh.write(f"first_cumulants_in={_fmt(first_in)}\n")
                 fh.write(f"n_out_lossless={n_out_lossless:.17g}\n")
-                fh.write(f"first_out_lossless={_fmt(first_out_lossless)}\n")
+                fh.write(f"first_cumulants_out_lossless={_fmt(first_out_lossless)}\n")
                 fh.write(f"n_out_lossy={n_out_lossy:.17g}\n")
-                fh.write(f"first_out_lossy={_fmt(first_out_lossy)}\n")
+                fh.write(f"first_cumulants_out_lossy={_fmt(first_out_lossy)}\n")
             # Append total photon number summary
             totals_path = log_dir / "N_total.txt"
             with totals_path.open("a", encoding="utf-8") as fh:

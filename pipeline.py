@@ -59,7 +59,7 @@ def _normalize_instructions(bs_params, n_modes: int):
 
 
 def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, int, float, float]], np.ndarray]:
-    """Decompose a unitary into mesh instructions and output phases."""
+    """Decompose a unitary into beamsplitter-network instructions and output phases."""
     U = np.asarray(U, dtype=complex)
     n_modes = U.shape[0]
 

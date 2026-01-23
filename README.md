@@ -1,6 +1,6 @@
 # <ins>Lo</ins>ssy <ins>G</ins>aussian <ins>I</ins>nterferometer <ins>C</ins>omputation - <ins>LoGIC</ins>
 
-Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for random meshes or matrix files.
+Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
 ## Quick start
 
@@ -10,7 +10,7 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-Run a basic simulation of a random squeezed input through a random unitary mesh:
+Run a basic simulation of a random squeezed input through a random beam splitter network:
 
 ```bash
 python demos/demo_pipeline.py --modes 4 --eta 0.9 --topology Clements --seed 123
@@ -37,16 +37,16 @@ d0, V0 = random_squeezed_vacuum(n_modes)
 d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 ```
 
-`get_Vout` validates the input covariance, decomposes the unitary with the chosen mesh (Clements or Reck), applies optional loss, and returns the output mean/covariance (and the device if `get_device=True`).
+`get_Vout` validates the input covariance, decomposes the unitary with the chosen beam splitter network (Clements or Reck), applies optional loss, and returns the output mean/covariance (and the device if `get_device=True`).
 
 ## Repository layout
 
-- `devices.py` — core `GaussianDevice` class, covariance validation, random squeezed-state helpers, and mesh builders.
+- `devices.py` — core `GaussianDevice` class, covariance validation, random squeezed-state helpers, and beamsplitter-network builders.
 - `pipeline.py` — thin wrapper that decomposes a target unitary and feeds it through `GaussianDevice`.
 - `demos/`directory containing different code demonstrations and CLIs. Read the `demos/user_manual.md` for more information.
 - `demos/user_manual.md` — supplementary sheet for the `demos/` directory
 - `demos/demo_devices.py` — introducionary demo for devices.py
-- `demos/demo_pipeline.py` — minimal CLI demo for random meshes.
+- `demos/demo_pipeline.py` — minimal CLI demo for random beam splitter networks.
 - `demos/demo_literature.py` — CLI utility to process `.mtx` covariance/symplectic files; writes results to `demos/output_covariance_mtx/`.
 - `demos/input_covariance_mtx/`, `demos/interferometer_symplectic/` — sample matrix inputs used by `demos/demo_literature.py`.
 

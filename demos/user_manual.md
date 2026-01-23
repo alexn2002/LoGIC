@@ -1,12 +1,12 @@
 # LoGIC - Demos User Manual
 
 Contents
-- demo_devices.py (introductory: direct GaussianDevice usage, no pipeline)
-- demo_pipeline.py (introductory: random unitary + random squeezed input)
-- demo_literature.py (batch processing of input covariance matrices, optional Wolfram Language export)
+- [demo_devices.py](demo_devices.py) (introductory: direct GaussianDevice usage, no pipeline)
+- [demo_pipeline.py](demo_pipeline.py) (introductory: random unitary + random squeezed input)
+- [demo_literature.py](demo_literature.py) (batch processing of input covariance matrices, optional Wolfram Language export)
 
 -----------------------------------------------------------------------
-demo_devices.py
+demo_devices.py (see [demos/demo_devices.py](demo_devices.py))
 -----------------------------------------------------------------------
 
 Purpose
@@ -94,7 +94,7 @@ Flags and defaults
   demos/plots/effective_loss_<Topology>_etaXYZ.png
 
 -----------------------------------------------------------------------
-demo_pipeline.py
+demo_pipeline.py (see [demos/demo_pipeline.py](demo_pipeline.py))
 -----------------------------------------------------------------------
 
 Purpose
@@ -165,8 +165,12 @@ It also writes a log file:
      ```
 
 -----------------------------------------------------------------------
-demo_literature.py
+demo_literature.py (see [demos/demo_literature.py](demo_literature.py))
 -----------------------------------------------------------------------
+This python script will produce the data used for figure 7 of [D'Archille et al.][paper] apart from not significant cross mashine discrepancies (see the [Disclaimer](../README.md#disclaimer)).
+
+
+[paper]: https://www.youtube.com/watch?v=xMHJGd3wwZk
 
 Purpose
 Batch-process one or more input covariance matrices (.mtx files) through a fixed interferometer. This workflow is designed for reliable processing of many time steps.
@@ -240,7 +244,7 @@ Ordering is alphabetical by filename (which matches numeric order for input_cov0
 
 ### Code explanation
 Step-by-step: compute_lossy_V()
-This function is the core of demo_literature.py. It processes one input covariance at a time.
+This function is the core of [demo_literature.py](demo_literature.py). It processes one input covariance at a time.
 
 1) Read the input covariance V:
    - Uses scipy.io.mmread() on the provided .mtx file.

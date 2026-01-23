@@ -37,7 +37,6 @@ def main():
         choices=("Clements", "Reck", "clements", "reck"),
         help="Beam splitter network topology.",
     )
-    )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
 

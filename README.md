@@ -47,8 +47,8 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 
 ## Repository layout
 
-- [`devices.py`](devices.py) — core [`GaussianDevice`](devices.py#L92) class, covariance validation, random squeezed-state helpers, and beamsplitter-network builders.
-- [`pipeline.py`](pipeline.py) — thin wrapper that decomposes a target unitary and feeds it through [`GaussianDevice`](devices.py#L92).
+- [`devices.py`](devices.py) — core [`GaussianDevice`](devices.py#L85) class, covariance validation, random squeezed-state helpers, and beamsplitter-network builders.
+- [`pipeline.py`](pipeline.py) — thin wrapper that decomposes a target unitary and feeds it through [`GaussianDevice`](devices.py#L85).
 - [`demos/`](demos/) directory containing different code demonstrations and CLIs. Read the [user manual](demos/user_manual.md) for more information.
 - [`demos/user_manual.md`](demos/user_manual.md) — supplementary sheet for the `demos/` directory
 - [`demos/demo_devices.py`](demos/demo_devices.py) — introducionary demo for devices.py

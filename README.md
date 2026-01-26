@@ -4,7 +4,7 @@ Lightweight tools for propagating Gaussian states through programmable interfero
 
 **This project was developed to produce the data of figure 7 in [D'Archille et al.][paper].**
 
-[paper]: https://www.youtube.com/watch?v=xMHJGd3wwZk
+[paper]: https://arxiv.org/pdf/2506.23838
 
 For details, see the [demo_literature.py](demos/demo_literature.py) section in the [user manual](demos/user_manual.md) and please read the [Disclaimer](#disclaimer) below.
 

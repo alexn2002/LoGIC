@@ -170,7 +170,7 @@ demo_literature.py (see [demos/demo_literature.py](demo_literature.py))
 This python script will produce the data used for figure 7 of [D'Archille et al.][paper] apart from not significant cross mashine discrepancies (see the [Disclaimer](../README.md#disclaimer)).
 
 
-[paper]: https://www.youtube.com/watch?v=xMHJGd3wwZk
+[paper]: https://arxiv.org/pdf/2506.23838
 
 Purpose
 Batch-process one or more input covariance matrices (.mtx files) through a fixed interferometer. This workflow is designed for reliable processing of many time steps.

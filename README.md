@@ -1,5 +1,7 @@
 # <ins>Lo</ins>ssy <ins>G</ins>aussian <ins>I</ins>nterferometer <ins>C</ins>omputation - <ins>LoGIC</ins>
 
+[![DOI](https://zenodo.org/badge/1106338282.svg)](https://doi.org/10.5281/zenodo.18379681)
+
 Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
 **This project was developed to produce the data of figure 7 in [D'Achille et al.][paper].**

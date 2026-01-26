@@ -2,7 +2,7 @@
 
 Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
-**This project was developed to produce the data of figure 7 in [D'Archille et al.][paper].**
+**This project was developed to produce the data of figure 7 in [D'Achille et al.][paper].**
 
 [paper]: https://arxiv.org/pdf/2506.23838
 
@@ -72,7 +72,7 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 - If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.
 
 ## DISCLAIMER
-We observed hardware-dependent numerical differences when simulating large beam splitter networks in finite precision. In particular, using the same code version of [demos/demo_literature.py](demos/demo_literature.py) on different machines produced output covariance matrices whose *difference* had a Frobenius norm on the order of 1e-2 for the 25×25 case. Repeated runs on the same machine did not show such deviations. These differences did not materially affect the information‑theoretic analysis in [D'Archille et al.][paper], for which this code was developed.
+We observed hardware-dependent numerical differences when simulating large beam splitter networks in finite precision. In particular, using the same code version of [demos/demo_literature.py](demos/demo_literature.py) on different machines produced output covariance matrices whose *difference* had a Frobenius norm on the order of 1e-2 for the 25×25 case. Repeated runs on the same machine did not show such deviations. These differences did not materially affect the information‑theoretic analysis in [D'Achille et al.][paper], for which this code was developed.
 
 The discrepancy appears only in the lossy case. This is expected because the QR-based decomposition used to construct a beam splitter network from a target unitary is not unique. While different decompositions implement the same unitary in the lossless case, they can induce different effective loss channels, leading to different lossy outputs.
 

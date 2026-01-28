@@ -4,7 +4,7 @@
 
 Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
-**This project was developed to produce the data of Figure 7 in `D'Achille et al. 2026` (unpublished). You can find a preprint version [preprint version][paper]** on the arXiv. Note that the preprint version does not yet include Figure 7.
+**This project was developed to produce the data of Figure 7 in [D'Achille et al. 2026](#references) (unpublished).** You can find a preprint version [preprint version][paper] on the arXiv. Note that the preprint version does not yet include Figure 7.
 
 [paper]: https://arxiv.org/pdf/2506.23838
 
@@ -68,8 +68,9 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 
 ## References
 
-- Reck, Michael, et al. "Experimental realization of any discrete unitary operator." Physical Review Letters 73.1 (1994): 58.
-- Clements, William R., et al. "Optimal design for universal multiport interferometers." Optica 3.12 (2016): 1460-1465.
+- [Reck, Michael, et al.](https://doi.org/10.1103/PhysRevLett.73.58) "Experimental realization of any discrete unitary operator." Physical Review Letters 73.1 (1994): 58.
+- [Clements, William R., et al.](http://dx.doi.org/10.1364/OPTICA.3.001460) "Optimal design for universal multiport interferometers." Optica 3.12 (2016): 1460-1465.
+- <ins>D'Achille, Mauro, et al.</ins> (unpublished) "Configurable photonic simulator for quantum field dynamics." arXiv preprint [arXiv:2506.23838](https://arxiv.org/pdf/2506.23838) (2025)
 
 ## Notes
 

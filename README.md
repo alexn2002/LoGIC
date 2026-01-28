@@ -59,9 +59,12 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 - [`demos/input_covariance_mtx/`](demos/input_covariance_mtx/), [`demos/interferometer_symplectic/`](demos/interferometer_symplectic/) — sample matrix inputs used by [`demos/demo_literature.py`](demos/demo_literature.py).
 
 ## Authors
+- [Alexander Naumann](https://mbqd.de/author/alexander-naumann/), Friedrich Schiller University Jena
+- [Robin Strahlendorf](https://mbqd.de/author/robin-strahlendorf/), Friedrich Schiller University Jena
 
-- Alexander Naumann, Friedrich Schiller University Jena
-- Robin Strahlendorf, Friedrich Schiller University Jena
+## Supervisors
+- [Mauro D'Achille](https://mbqd.de/author/mauro-dachille/), Friedrich Schiller University Jena
+- [Prof. Dr. Martin Gärttner](https://mbqd.de/author/martin-garttner/), Friedrich Schiller University Jena
 
 ## References
 

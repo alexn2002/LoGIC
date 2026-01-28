@@ -4,7 +4,7 @@
 
 Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
-**This project was developed to produce the data of figure 7 in [D'Achille et al.][paper].**
+**This project was developed to produce the data of Figure 7 in `D'Achille et al. 2026` (unpublished). You can find a preprint version [preprint version][paper]** on the arXiv. Note that the preprint version does not yet include Figure 7.
 
 [paper]: https://arxiv.org/pdf/2506.23838
 
@@ -78,6 +78,6 @@ We observed hardware-dependent numerical differences when simulating large beam 
 
 The discrepancy appears only in the lossy case. This is expected because the QR-based decomposition used to construct a beam splitter network from a target unitary is not unique. While different decompositions implement the same unitary in the lossless case, they can induce different effective loss channels, leading to different lossy outputs.
 
-Although the PyPI `interferometer` package is deterministic, we observed machine‑dependent variation in its decomposition results, which likely explains the cross‑machine discrepancies. We have not yet identified the root cause or a reliable fix. Users should therefore interpret results from unitary‑decomposition‑based simulations of non‑unitary dynamics with care.
+Although the PyPI `interferometer` package is deterministic, we observed machine‑dependent variation in its decomposition results, which likely explains the cross‑machine discrepancies. We have not yet identified a reliable fix or the specific routines within `interferometer` that cause this problem. Users should therefore interpret results from unitary‑decomposition‑based simulations of non‑unitary dynamics with care.
 
 If you have suggestions to address this issue, please contact us at `alexander.naumann@uni-jena.de` or `robin.strahlendorf@uni-jena.de`.

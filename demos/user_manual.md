@@ -167,7 +167,7 @@ It also writes a log file:
 -----------------------------------------------------------------------
 demo_literature.py (see [demos/demo_literature.py](demo_literature.py))
 -----------------------------------------------------------------------
-This Python script will produce the data used for Figure 7 of `D'Achille et al. 2026` (unpublished, [preprint][paper] available excluding Figure 7), apart from not-significant cross-machine discrepancies (see the [Disclaimer](../README.md#disclaimer)).
+This Python script will produce the data used for Figure 7 of `D'Achille et al. 2026, Section VI. Error Analysis, B Photon Loss` (unpublished, [preprint][paper] available, see section), apart from not-significant cross-machine discrepancies (see the [Disclaimer](../README.md#disclaimer)).
 
 
 [paper]: https://arxiv.org/pdf/2506.23838

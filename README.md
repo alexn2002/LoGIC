@@ -4,7 +4,7 @@
 
 Lightweight tools for propagating Gaussian states through programmable interferometers that allows simulation of internal, balanced photon loss. It wraps the [`interferometer`](https://pypi.org/project/interferometer/) package with a small `GaussianDevice` helper, plus ready-to-run demos for beam splitter networks or matrix files.
 
-**This project was developed to produce the data of Figure 7 in [D'Achille et al. 2026](#references) (unpublished).** You can find a preprint version [preprint version][paper] on the arXiv.
+**This project was developed to produce the data of Figure 7 in [D'Achille et al. 2026](#references) (unpublished; see Section VI Error Analysis, B Photon Loss).** You can find a preprint version [preprint version][paper] on the arXiv.
 
 [paper]: https://arxiv.org/pdf/2506.23838
 

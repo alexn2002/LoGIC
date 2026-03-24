@@ -26,6 +26,17 @@ def _haar_unitary(n: int, rng: np.random.Generator) -> np.ndarray:
     return q * phases
 
 
+def _normalize_topology(label: str) -> str:
+    topo = label.lower()
+    if topo == "clements":
+        return "Clements"
+    if topo == "reck":
+        return "Reck"
+    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        return "embedded_reck"
+    raise ValueError(f"Unsupported topology: {label}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Simple demo: propagate a squeezed vacuum through a random beam splitter network.")
     parser.add_argument("--modes", type=int, default=4, help="Number of spatial modes.")
@@ -34,26 +45,27 @@ def main():
         "--topology",
         type=str,
         default="Clements",
-        choices=("Clements", "Reck", "clements", "reck"),
+        choices=("Clements", "Reck", "embedded_reck", "clements", "reck", "embedded_reck_in_clements"),
         help="Beam splitter network topology.",
     )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
+    topology = _normalize_topology(args.topology)
 
     rng = np.random.default_rng(args.seed)
     U = _haar_unitary(args.modes, rng)
     d0, V0 = random_squeezed_vacuum(args.modes, rng=rng)
     input_dev = GaussianDevice(d0.copy(), V0.copy(), instructions=()) # store the input state for reference
 
-    d_out, V_out, output_dev = get_Vout(U, V0, d0=d0, eta=args.eta, topology=args.topology, get_device=True)
+    d_out, V_out, output_dev = get_Vout(U, V0, d0=d0, eta=args.eta, topology=topology, get_device=True)
 
     log_dir = PROJECT_ROOT / "demos" / "logs" / "demo_pipeline"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / f"demo_pipeline_{args.topology}_eta{int(round(args.eta * 100)):03d}.txt"
+    log_path = log_dir / f"demo_pipeline_{topology}_eta{int(round(args.eta * 100)):03d}.txt"
     log_path.write_text(
         "\n".join(
             [
-                f"topology={args.topology}",
+                f"topology={topology}",
                 f"modes={args.modes}",
                 f"eta={args.eta:.6f}",
                 f"n_in={float(np.real_if_close(input_dev.exp_photon_number())):.17g}",
@@ -65,7 +77,7 @@ def main():
         encoding="utf-8",
     )
 
-    print(f"Beam splitter network topology: {args.topology}, modes: {args.modes}, eta={args.eta}")
+    print(f"Beam splitter network topology: {topology}, modes: {args.modes}, eta={args.eta}")
     print("Input photon number:", float(np.real_if_close(input_dev.exp_photon_number())))
     print("Output photon number:", float(np.real_if_close(output_dev.exp_photon_number())))
     print("First cumulants:", output_dev.first_cumulants())

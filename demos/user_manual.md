@@ -46,6 +46,10 @@ Flags and defaults
 - --topology: Clements or Reck (default Clements)
 - --seed: RNG seed for reproducibility (default 123)
 
+Note
+- `demo_devices.py` exposes `Clements`, `Reck`, and `embedded_reck` in its CLI.
+- The Python helper `build_instructions(..., topology="embedded_reck")` also exists and returns an embedded Reck-in-Clements instruction list with explicit identity beam splitters.
+
 ### Code explanation
 1) Build a random squeezed vacuum input:
    - Key lines:
@@ -129,6 +133,11 @@ Flags and defaults
 - --modes: number of spatial modes (default 4)
 - --seed: RNG seed for reproducibility (default 123)
 
+Note
+- `demo_pipeline.py` exposes `Clements`, `Reck`, and `embedded_reck` in its CLI.
+- The underlying API `get_Vout(..., topology="embedded_reck")` is supported as well.
+- In `embedded_reck` mode, the Reck decomposition is transformed into a larger Clements-format instruction list containing identity beam splitters, vacuum ancilla modes are appended internally, and those ancillas are traced out before `d_out` and `V_out` are returned.
+
 ### Output
 The script prints:
 - Beam splitter network topology, modes, and eta
@@ -155,6 +164,10 @@ It also writes a log file:
      ```python
      d_out, V_out, output_dev = get_Vout(U, V0, d0=d0, eta=args.eta, topology=args.topology, get_device=True)
      ```
+   - Supported API topologies:
+     `Clements`, `Reck`, and `embedded_reck`
+   - In `embedded_reck` mode:
+     the code decomposes `U` with the Reck scheme, embeds that instruction list into a larger Clements mesh with identity beam splitters, pads the Gaussian input state with vacuum ancillas, propagates the enlarged state, and reduces the final Gaussian state back to the original logical modes.
 4) Print photon-number diagnostics:
    - Key lines:
      ```python

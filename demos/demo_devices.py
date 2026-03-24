@@ -12,8 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from devices import (
     GaussianDevice,
+    add_vacuum_ancillas,
     build_instructions,
+    embedded_reck_mode_count,
     effective_loss_curve,
+    reduce_gaussian_state,
     random_squeezed_vacuum,
 )
 
@@ -29,6 +32,17 @@ def _write_text(path: Path, content: str) -> None:
 def _format_array(arr: np.ndarray) -> str:
     flat = np.ravel(arr)
     return "[" + ", ".join(f"{float(x):.17g}" for x in flat) + "]"
+
+
+def _normalize_topology(label: str) -> str:
+    topo = label.lower()
+    if topo == "clements":
+        return "Clements"
+    if topo == "reck":
+        return "Reck"
+    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        return "embedded_reck"
+    raise ValueError(f"Unsupported topology: {label}")
 
 
 def _plot_loss_curve(etas: np.ndarray, curves: dict[str, np.ndarray], out_path: Path) -> None:
@@ -57,14 +71,14 @@ def main() -> None:
         "--topology",
         type=str,
         default="Clements",
-        choices=("Clements", "Reck", "clements", "reck"),
+        choices=("Clements", "Reck", "embedded_reck", "clements", "reck", "embedded_reck_in_clements"),
         help="Beam splitter network topology.",
     )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
-    topology = args.topology.capitalize()
+    topology = _normalize_topology(args.topology)
 
     # ------------------------------------------------------------------
     # 1) Build an input Gaussian state (random squeezed vacuum)
@@ -75,24 +89,42 @@ def main() -> None:
     # 2) Build a random instruction list for the interferometer
     # ------------------------------------------------------------------
     instructions = build_instructions(args.modes, topology, rng=rng, include_phases=False)
-    output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
+    if topology == "embedded_reck":
+        embedded_modes = embedded_reck_mode_count(args.modes)
+        d_work, V_work = add_vacuum_ancillas(
+            d_in.copy(),
+            V_in.copy(),
+            embedded_modes - args.modes,
+        )
+        output_phases = np.zeros(embedded_modes, dtype=float)
+        output_phases[: args.modes] = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
+    else:
+        d_work, V_work = d_in.copy(), V_in.copy()
+        output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
 
     # ------------------------------------------------------------------
     # 3) Initialize GaussianDevice and compute "in" moments
     # ------------------------------------------------------------------
-    device = GaussianDevice(d_in.copy(), V_in.copy(), instructions=instructions)
-    n_in = device.exp_photon_number()
-    first_in = device.first_cumulants()
-    second_in = device.second_cumulants()
+    input_device = GaussianDevice(d_in.copy(), V_in.copy(), instructions=())
+    n_in = input_device.exp_photon_number()
+    first_in = input_device.first_cumulants()
+    second_in = input_device.second_cumulants()
+    device = GaussianDevice(d_work, V_work, instructions=instructions)
 
     # ------------------------------------------------------------------
     # 4) Apply the network and output phases, compute "out" moments
     # ------------------------------------------------------------------
     device.apply_network(eta=args.eta)
     device.apply_output_phases(output_phases)
-    n_out = device.exp_photon_number()
-    first_out = device.first_cumulants()
-    second_out = device.second_cumulants()
+    if topology == "embedded_reck":
+        d_out, V_out = reduce_gaussian_state(device.d, device.V, range(args.modes))
+        output_device = GaussianDevice(d_out, V_out, instructions=())
+    else:
+        output_device = device
+
+    n_out = output_device.exp_photon_number()
+    first_out = output_device.first_cumulants()
+    second_out = output_device.second_cumulants()
 
     # ------------------------------------------------------------------
     # 5) Compute effective loss curve

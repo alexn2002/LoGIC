@@ -40,6 +40,72 @@ def validate_covariance(V: np.ndarray, d: np.ndarray, hbar: float = 1.0, tol: fl
         raise ValueError("Robertson-Schroedinger uncertainty bound violated.")
 
 
+def embedded_reck_mode_count(n: int) -> int:
+    """Return the enlarged Clements mode count used to embed an n-mode Reck mesh."""
+    if n < 1:
+        raise ValueError("Number of modes must be positive.")
+    return n + n // 2
+
+
+def _quadrature_indices(modes: Sequence[int], n_modes: int) -> np.ndarray:
+    """Map mode indices to quadrature indices in [x_0..x_n-1, p_0..p_n-1] ordering."""
+    modes_arr = np.asarray(modes, dtype=int).reshape(-1)
+    if modes_arr.size == 0:
+        return np.array([], dtype=int)
+    if np.any(modes_arr < 0) or np.any(modes_arr >= n_modes):
+        raise ValueError("Mode index out of range.")
+    return np.concatenate([modes_arr, n_modes + modes_arr])
+
+
+def add_vacuum_ancillas(
+    d: np.ndarray,
+    V: np.ndarray,
+    n_ancilla: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Append vacuum ancillas to a Gaussian state while preserving quadrature ordering."""
+    if n_ancilla < 0:
+        raise ValueError("Number of ancilla modes must be non-negative.")
+
+    d = np.asarray(d, dtype=complex).reshape(-1)
+    V = np.asarray(V, dtype=complex)
+    n_phys = d.size // 2
+    if n_ancilla == 0:
+        return d.copy(), V.copy()
+
+    n_total = n_phys + n_ancilla
+    phys_quad = _quadrature_indices(range(n_phys), n_total)
+
+    d_out = np.zeros(2 * n_total, dtype=complex)
+    V_out = 0.5 * np.eye(2 * n_total, dtype=complex)
+
+    d_out[phys_quad] = d
+    V_out[np.ix_(phys_quad, phys_quad)] = V
+    return d_out, V_out
+
+
+def reduce_gaussian_state(
+    d: np.ndarray,
+    V: np.ndarray,
+    modes: Sequence[int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the reduced Gaussian state obtained by tracing out all other modes."""
+    d = np.asarray(d, dtype=complex).reshape(-1)
+    V = np.asarray(V, dtype=complex)
+    n_total = d.size // 2
+    quad_idx = _quadrature_indices(modes, n_total)
+    return d[quad_idx].copy(), V[np.ix_(quad_idx, quad_idx)].copy()
+
+
+def _clements_mode_pairs(n: int) -> list[tuple[int, int]]:
+    """Return the adjacent mode pairs in the column order of a Clements mesh."""
+    pairs: list[tuple[int, int]] = []
+    for column in range(n - 1):
+        start = 0 if column % 2 == 0 else 1
+        for k in range(start, n - 1, 2):
+            pairs.append((k, k + 1))
+    return pairs
+
+
 # ---------------------------------------------------------------------
 # Helpers: unitary and symplectic from a single beamsplitter
 # ---------------------------------------------------------------------
@@ -444,9 +510,153 @@ def build_instructions(
                     instructions.append((k, k + 1, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
                 else:
                     instructions.append((k, k + 1, rng.uniform(0.0, TWOPI)))
+    elif topology.lower() in {"embedded_reck", "embedded_reck_in_clements"}:
+        reck_instructions: list[Instruction] = []
+        for k in range(n, 1, -1):
+            for j in range(1, k):
+                if include_phases:
+                    reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
+                else:
+                    reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
+        instructions = transform_instructions(reck_instructions, n)
     else:
         raise ValueError(f"Unknown topology '{topology}'.")
     return tuple(instructions)
+
+
+#----------------------------------------------------------------------
+# Helpers: Transform from reck to clements instructions when embedding smaller Reck into larger Clements
+# helper function, marks start index of each diagonal reck layer (recursively implemented)
+def a(d, n):
+    if d == 0:
+        return 1
+    else:
+        return a(d-1, n) + (n-2) - (d-1) + 1
+    
+def my_sort(n):
+    """
+    provides the sorting mask generated from n (from Reck indexing) as a list of indices in the order they should be accessed for coloumn wise indexing
+    example: [1, 2, 3, 4, 5, 6] -> [1, 2, 4, 3, 5, 6]
+    """
+    sorted_indices = []
+
+    # For fixed d, the accessed term lies on diagonal j = d-k.
+    # That diagonal has length n-1-j, so the largest valid offset is n-2-j.
+    # Substituting j = d-k gives the correct bounds:
+    #   2k     <= n-2-(d-k)  -> k <= n-2-d
+    #   2k + 1 <= n-2-(d-k)  -> k <= n-3-d
+    for d in range(n-1):
+        kmax_even = min(d, n - 2 - d)
+        for k in range(kmax_even + 1):
+            sorted_indices.append(a(d-k, n) + 2*k)
+
+        kmax_odd = min(d, n - 3 - d)
+        for k in range(kmax_odd + 1):
+            sorted_indices.append(a(d-k, n) + 2*k + 1)
+
+    return sorted_indices
+
+def sort_and_insert(n):
+    """
+    creates a flat list representing the n(n-1)//2 beam splitters of the reck scheme
+    resorts them according to column wise indexing and inserts identity (marked as 0)
+    to get a full clements network for n + n//2 modes
+    """
+    instr = list(range(1, n*(n-1)//2 + 1))
+
+    # Reorder according to the diagonal-wise / column-wise access pattern.
+    sorted_instr = [instr[i - 1] for i in my_sort(n)]
+
+    enlarged_n = n + n//2
+    embedded_columns = []
+    start = 0
+
+    # Reconstruct the sorted data as alternating even and odd blocks for each d.
+    # Those blocks are the embedded Clements columns.
+    for d in range(n - 1):
+        even_count = min(d, n - 2 - d) + 1
+        odd_limit = min(d, n - 3 - d)
+        odd_count = odd_limit + 1 if odd_limit >= 0 else 0
+
+        even_block = sorted_instr[start:start + even_count]
+        start += even_count
+        embedded_columns.append(even_block)
+
+        if odd_count > 0:
+            odd_block = sorted_instr[start:start + odd_count]
+            start += odd_count
+            embedded_columns.append(odd_block)
+
+    enlarged_instr_list = []
+    for i, column in enumerate(embedded_columns):
+        if enlarged_n % 2 == 0:
+            target_len = enlarged_n//2 if i % 2 == 0 else enlarged_n//2 - 1
+        else:
+            target_len = enlarged_n//2
+
+        if len(column) > target_len:
+            raise ValueError(
+                f"embedded column {i} has length {len(column)}, exceeds target length {target_len}"
+            )
+
+        enlarged_instr_list.extend(column + ["Id"] * (target_len - len(column)))
+
+    # For even enlarged_n the embedded Clements mesh has one final identity
+    # column of the shorter column length.
+    if enlarged_n % 2 == 0:
+        enlarged_instr_list.extend(["Id"] * (enlarged_n // 2 - 1))
+
+    return enlarged_instr_list
+
+
+def transform_instructions(
+    reck_instructions: Sequence[Instruction],
+    n: int,
+) -> list[tuple[int, int, float, float]]:
+    """
+    Embed an n-mode Reck instruction list into a larger Clements mesh.
+
+    The returned instructions act on a Clements network of size
+    ``embedded_reck_mode_count(n)``. Identity beamsplitters are inserted with
+    ``theta = phi = 0`` so later loss or drift models still see the full mesh.
+    """
+    expected_len = n * (n - 1) // 2
+    if len(reck_instructions) != expected_len:
+        raise ValueError(
+            f"Expected {expected_len} Reck instructions for {n} modes, got {len(reck_instructions)}."
+        )
+
+    normalized: list[tuple[int, int, float, float]] = []
+    for inst in reck_instructions:
+        if len(inst) == 3:
+            k, l, theta = inst
+            phi = 0.0
+        elif len(inst) == 4:
+            k, l, theta, phi = inst
+            phi = 0.0 if phi is None else phi
+        else:
+            raise ValueError("Instructions must be length 3 or 4.")
+        normalized.append((int(k), int(l), float(theta), float(phi)))
+
+    slot_mask = sort_and_insert(n)
+    embedded_n = embedded_reck_mode_count(n)
+    target_pairs = _clements_mode_pairs(embedded_n)
+    if len(slot_mask) != len(target_pairs):
+        raise ValueError(
+            f"Embedding mask has {len(slot_mask)} slots, but Clements layout has {len(target_pairs)}."
+        )
+
+    transformed: list[tuple[int, int, float, float]] = []
+    for slot, (k_target, l_target) in zip(slot_mask, target_pairs):
+        if slot == "Id":
+            transformed.append((k_target, l_target, 0.0, 0.0))
+            continue
+
+        _, _, theta, phi = normalized[int(slot) - 1]
+        transformed.append((k_target, l_target, theta, phi))
+
+    return transformed
+
 
 
 def effective_loss_curve(n: int, rng: np.random.Generator | None = None):

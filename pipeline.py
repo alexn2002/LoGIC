@@ -3,7 +3,14 @@ from __future__ import annotations
 import numpy as np
 import interferometer as itf
 
-from devices import GaussianDevice, validate_covariance
+from devices import (
+    GaussianDevice,
+    add_vacuum_ancillas,
+    embedded_reck_mode_count,
+    reduce_gaussian_state,
+    transform_instructions,
+    validate_covariance,
+)
 
 
 def _extract_decomposition(decomp_obj):
@@ -68,8 +75,17 @@ def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, i
         decomp_fn = itf.square_decomposition
     elif topo == "reck":
         decomp_fn = itf.triangle_decomposition
+    elif topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        bs_params_raw, phases = _extract_decomposition(itf.triangle_decomposition(U))
+        reck_instructions = _normalize_instructions(bs_params_raw, n_modes)
+        instructions = transform_instructions(reck_instructions, n_modes)
+
+        embedded_phases = np.zeros(embedded_reck_mode_count(n_modes), dtype=float)
+        phases = np.asarray(phases, dtype=float)
+        embedded_phases[: phases.size] = phases
+        return instructions, embedded_phases
     else:
-        raise ValueError("topology must be 'Clements' or 'Reck'.")
+        raise ValueError("topology must be 'Clements', 'Reck', or 'embedded_reck'.")
 
     bs_params_raw, phases = _extract_decomposition(decomp_fn(U))
     instructions = _normalize_instructions(bs_params_raw, n_modes)
@@ -88,6 +104,7 @@ def get_Vout(
     """Propagate an input Gaussian state through a target unitary and loss channel."""
     U = np.asarray(U, dtype=complex)
     n_modes = U.shape[0]
+    topo = topology.lower()
 
     instructions, phases = instructions_from_U(U, topology)
     if d0 is None:
@@ -95,12 +112,22 @@ def get_Vout(
 
     validate_covariance(V0.copy(), d0.copy(), hbar=1, tol=1e-12)
 
-    dev = GaussianDevice(d=d0.copy(), V=V0.copy(), instructions=instructions)
+    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        n_ancilla = embedded_reck_mode_count(n_modes) - n_modes
+        d_in, V_in = add_vacuum_ancillas(d0.copy(), V0.copy(), n_ancilla)
+    else:
+        d_in, V_in = d0.copy(), V0.copy()
+
+    dev = GaussianDevice(d=d_in, V=V_in, instructions=instructions)
     dev.apply_network(eta=eta)
     if phases.size:
         dev.apply_output_phases(phases)
 
-    d_out, V_out = dev.d, dev.V
+    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        d_out, V_out = reduce_gaussian_state(dev.d, dev.V, range(n_modes))
+    else:
+        d_out, V_out = dev.d, dev.V
+
     if get_device:
         return d_out, V_out, dev
     return d_out, V_out

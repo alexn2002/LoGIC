@@ -24,6 +24,8 @@ Run a basic simulation of a random squeezed input through a random beam splitter
 python demos/demo_pipeline.py --modes 4 --eta 0.9 --topology Clements --seed 123
 ```
 
+In the Python API, `get_Vout(..., topology="embedded_reck")` is also supported. This embeds a Reck decomposition into a larger Clements mesh with explicit identity beam splitters and vacuum ancilla modes, then traces out the ancillas before returning the final state.
+
 Process covariance/symplectic matrices from `demos/input_covariance_mtx` and `demos/interferometer_symplectic`:
 
 ```bash
@@ -45,7 +47,9 @@ d0, V0 = random_squeezed_vacuum(n_modes)
 d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 ```
 
-`get_Vout` validates the input covariance, decomposes the unitary with the chosen beam splitter network (Clements or Reck), applies optional loss, and returns the output mean/covariance (and the device if `get_device=True`).
+`get_Vout` validates the input covariance, decomposes the unitary with the chosen beam splitter network (`"Clements"`, `"Reck"`, or `"embedded_reck"`), applies optional loss, and returns the output mean/covariance (and the device if `get_device=True`).
+
+For `topology="embedded_reck"`, the code first computes a Reck decomposition, transforms it into an enlarged Clements-style instruction list with inserted identity beam splitters, appends vacuum ancillas to the Gaussian input state, propagates the enlarged system, and finally traces out the ancilla modes so `d_out` and `V_out` again describe only the original logical modes.
 
 ## Repository layout
 
@@ -75,6 +79,7 @@ d_out, V_out = get_Vout(U, V0, d0=d0, eta=0.9, topology="Clements")
 ## Notes
 
 - Requires Python 3.10+ and the `interferometer` package (installed via `requirements.txt`).
+- The Python API and demo CLIs support `Clements`, `Reck`, and `embedded_reck`.
 - If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.
 
 ## DISCLAIMER

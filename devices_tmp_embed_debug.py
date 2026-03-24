@@ -644,33 +644,6 @@ def transform_instructions(
     ``embedded_reck_mode_count(n)``. Identity beamsplitters are inserted with
     ``theta = phi = 0`` so later loss or drift models still see the full mesh.
     """
-    # TODO(embedded_reck): The current handcrafted embedding still does not
-    # reproduce the lossless Reck result after tracing out ancillas.
-    #
-    # What has already been verified:
-    # - Internal indexing is now consistently 0-based inside LoGIC.
-    # - The plain Reck and Clements paths agree in the lossless case up to
-    #   numerical precision, so the remaining bug is specific to the embedded
-    #   Reck construction.
-    # - Ancilla padding / reduction is not the culprit by itself.
-    #
-    # Current diagnosis:
-    # - `my_sort(n)` has the correct length n(n-1)/2 and is consistent with the
-    #   interferometer package's downward-pointing triangle ordering.
-    # - `sort_and_insert(n)` now matches the expected square Clements slot count
-    #   for N = n + n//2 total modes.
-    # - However, mapping the reordered Reck instruction list into the enlarged
-    #   Clements mesh by simply filling the non-Id slots in column order is
-    #   still geometrically wrong: the resulting embedded unitary does not match
-    #   the lossless Reck unitary on the logical system block.
-    #
-    # Implication:
-    # - The remaining issue is the physical slot geometry of the embedded
-    #   triangle inside the rectangular mesh, i.e. the exact (column, row)
-    #   locations where each active Reck beamsplitter must be placed.
-    # - Before changing this logic again, derive that 2D slot map explicitly
-    #   from the intended experimental layout and then update
-    #   `sort_and_insert` / `transform_instructions` together.
     expected_len = n * (n - 1) // 2
     if len(reck_instructions) != expected_len:
         raise ValueError(

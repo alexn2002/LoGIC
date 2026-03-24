@@ -88,14 +88,13 @@ def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, i
     elif topo == "reck":
         decomp_fn = itf.triangle_decomposition
     elif topo in {"embedded_reck", "embedded_reck_in_clements"}:
-        bs_params_raw, phases = _extract_decomposition(itf.triangle_decomposition(U))
-        reck_instructions = _normalize_instructions(bs_params_raw, n_modes)
-        instructions = transform_instructions(reck_instructions, n_modes)
-
-        embedded_phases = np.zeros(embedded_reck_mode_count(n_modes), dtype=float)
+        embedded_n = embedded_reck_mode_count(n_modes)
+        U_embedded = np.eye(embedded_n, dtype=complex)
+        U_embedded[:n_modes, :n_modes] = U
+        bs_params_raw, phases = _extract_decomposition(itf.square_decomposition(U_embedded))
+        instructions = _normalize_instructions(bs_params_raw, embedded_n)
         phases = np.asarray(phases, dtype=float)
-        embedded_phases[: phases.size] = phases
-        return instructions, embedded_phases
+        return instructions, phases
     else:
         raise ValueError("topology must be 'Clements', 'Reck', or 'embedded_reck'.")
 

@@ -12,11 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from devices import (
     GaussianDevice,
-    add_vacuum_ancillas,
     build_instructions,
-    embedded_reck_mode_count,
     effective_loss_curve,
-    reduce_gaussian_state,
     random_squeezed_vacuum,
 )
 
@@ -101,18 +98,7 @@ def main() -> None:
         include_phases=False,
         embedded_total_modes=args.embedded_total_modes,
     )
-    if topology == "embedded_reck":
-        embedded_modes = embedded_reck_mode_count(args.modes, args.embedded_total_modes)
-        d_work, V_work = add_vacuum_ancillas(
-            d_in.copy(),
-            V_in.copy(),
-            embedded_modes - args.modes,
-        )
-        output_phases = np.zeros(embedded_modes, dtype=float)
-        output_phases[embedded_modes - args.modes :] = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
-    else:
-        d_work, V_work = d_in.copy(), V_in.copy()
-        output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
+    output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
 
     # ------------------------------------------------------------------
     # 3) Initialize GaussianDevice and compute "in" moments
@@ -121,19 +107,20 @@ def main() -> None:
     n_in = input_device.exp_photon_number()
     first_in = input_device.first_cumulants()
     second_in = input_device.second_cumulants()
-    device = GaussianDevice(d_work, V_work, instructions=instructions)
+    device = GaussianDevice.from_logical_state(
+        d_in.copy(),
+        V_in.copy(),
+        instructions=instructions,
+        topology=topology,
+        embedded_total_modes=args.embedded_total_modes,
+        rng=rng,
+    )
 
     # ------------------------------------------------------------------
     # 4) Apply the network and output phases, compute "out" moments
     # ------------------------------------------------------------------
-    device.apply_network(eta=args.eta)
-    device.apply_output_phases(output_phases)
-    if topology == "embedded_reck":
-        n_ancilla = embedded_modes - args.modes
-        d_out, V_out = reduce_gaussian_state(device.d, device.V, range(n_ancilla, embedded_modes))
-        output_device = GaussianDevice(d_out, V_out, instructions=())
-    else:
-        output_device = device
+    d_out, V_out = device.run(eta=args.eta, output_phases=output_phases, logical_output=True)
+    output_device = GaussianDevice(d_out, V_out, instructions=())
 
     n_out = output_device.exp_photon_number()
     first_out = output_device.first_cumulants()

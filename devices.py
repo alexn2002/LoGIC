@@ -167,6 +167,7 @@ class GaussianDevice:
     d: np.ndarray
     V: np.ndarray
     instructions: Sequence[Instruction] = field(default_factory=tuple)
+    logical_modes: tuple[int, ...] | None = None
     rng: np.random.Generator = field(default_factory=lambda: np.random.default_rng(42))
 
     def __post_init__(self) -> None:
@@ -177,7 +178,46 @@ class GaussianDevice:
         # keep complex dtype to preserve phase information through the network
         self.d = np.asarray(self.d, dtype=complex).reshape(-1)
         self.V = np.asarray(self.V, dtype=complex)
+        if self.logical_modes is None:
+            self.logical_modes = tuple(range(self.n))
+        else:
+            self.logical_modes = tuple(int(mode) for mode in self.logical_modes)
+            if any(mode < 0 or mode >= self.n for mode in self.logical_modes):
+                raise ValueError("logical_modes must lie within the device mode range.")
         self.eta = 1.0
+
+    @classmethod
+    def from_logical_state(
+        cls,
+        d: np.ndarray,
+        V: np.ndarray,
+        instructions: Sequence[Instruction] = (),
+        topology: str = "Clements",
+        embedded_total_modes: int | None = None,
+        rng: np.random.Generator | None = None,
+    ) -> "GaussianDevice":
+        """
+        Build a device from logical-mode data, automatically padding ancillas for
+        embedded Reck and tracking which modes belong to the logical system.
+        """
+        topo = topology.lower()
+        d_arr = np.asarray(d, dtype=complex).reshape(-1)
+        V_arr = np.asarray(V, dtype=complex)
+        logical_n = d_arr.size // 2
+
+        if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+            embedded_n = embedded_reck_mode_count(logical_n, embedded_total_modes)
+            n_ancilla = embedded_n - logical_n
+            d_work, V_work = add_vacuum_ancillas(d_arr, V_arr, n_ancilla)
+            logical_modes = tuple(range(n_ancilla, embedded_n))
+        else:
+            d_work, V_work = d_arr.copy(), V_arr.copy()
+            logical_modes = tuple(range(logical_n))
+
+        kwargs = {}
+        if rng is not None:
+            kwargs["rng"] = rng
+        return cls(d=d_work, V=V_work, instructions=instructions, logical_modes=logical_modes, **kwargs)
 
     # ------------------------------------------------------------------
     # State diagnostics
@@ -313,10 +353,49 @@ class GaussianDevice:
         self.d = S @ self.d
         self.V = S @ self.V @ S.T
 
+    def lift_output_phases(self, phases: Sequence[float]) -> np.ndarray:
+        """
+        Map logical-mode output phases onto the device modes.
+
+        If `phases` already has device length it is returned unchanged.
+        Otherwise the phase vector must match the number of logical modes and is
+        inserted on those tracked logical indices.
+        """
+        phases_arr = np.asarray(phases, dtype=float)
+        if phases_arr.size == self.n:
+            return phases_arr.copy()
+        if phases_arr.size != len(self.logical_modes):
+            raise ValueError(
+                f"Expected {self.n} device phases or {len(self.logical_modes)} logical phases, got {phases_arr.size}."
+            )
+        full = np.zeros(self.n, dtype=float)
+        full[np.asarray(self.logical_modes, dtype=int)] = phases_arr
+        return full
+
     def rescale(self, eta_override: float | None = None) -> None:
         eta_val = float(self.eta) if eta_override is None else float(eta_override)
         factor = float(eta_val ** self.n)
         self.V = self.V / factor - 0.5 * (1 - factor) / factor * np.eye(2 * self.n)
+
+    def logical_state(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return the Gaussian state reduced to the tracked logical modes."""
+        if len(self.logical_modes) == self.n:
+            return self.d.copy(), self.V.copy()
+        return reduce_gaussian_state(self.d, self.V, self.logical_modes)
+
+    def run(
+        self,
+        eta: float = 1.0,
+        output_phases: Sequence[float] | None = None,
+        logical_output: bool = True,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Apply the network and return either the logical or full output state."""
+        self.apply_network(eta=eta)
+        if output_phases is not None:
+            self.apply_output_phases(self.lift_output_phases(output_phases))
+        if logical_output:
+            return self.logical_state()
+        return self.d.copy(), self.V.copy()
 
     def get_unitary(self) -> np.ndarray:
         """

@@ -5,9 +5,7 @@ import interferometer as itf
 
 from devices import (
     GaussianDevice,
-    add_vacuum_ancillas,
     embedded_reck_mode_count,
-    reduce_gaussian_state,
     transform_instructions,
     validate_covariance,
 )
@@ -131,22 +129,14 @@ def get_Vout(
 
     validate_covariance(V0.copy(), d0.copy(), hbar=1, tol=1e-12)
 
-    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
-        n_ancilla = embedded_reck_mode_count(n_modes, embedded_total_modes) - n_modes
-        d_in, V_in = add_vacuum_ancillas(d0.copy(), V0.copy(), n_ancilla)
-    else:
-        d_in, V_in = d0.copy(), V0.copy()
-
-    dev = GaussianDevice(d=d_in, V=V_in, instructions=instructions)
-    dev.apply_network(eta=eta)
-    if phases.size:
-        dev.apply_output_phases(phases)
-
-    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
-        n_ancilla = embedded_reck_mode_count(n_modes, embedded_total_modes) - n_modes
-        d_out, V_out = reduce_gaussian_state(dev.d, dev.V, range(n_ancilla, n_ancilla + n_modes))
-    else:
-        d_out, V_out = dev.d, dev.V
+    dev = GaussianDevice.from_logical_state(
+        d=d0.copy(),
+        V=V0.copy(),
+        instructions=instructions,
+        topology=topology,
+        embedded_total_modes=embedded_total_modes,
+    )
+    d_out, V_out = dev.run(eta=eta, output_phases=phases, logical_output=True)
 
     if get_device:
         return d_out, V_out, dev

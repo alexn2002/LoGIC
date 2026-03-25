@@ -77,7 +77,11 @@ def _normalize_instructions(bs_params, n_modes: int):
     return instructions
 
 
-def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, int, float, float]], np.ndarray]:
+def instructions_from_U(
+    U: np.ndarray,
+    topology: str,
+    embedded_total_modes: int | None = None,
+) -> tuple[list[tuple[int, int, float, float]], np.ndarray]:
     """Decompose a unitary into beamsplitter-network instructions and output phases."""
     U = np.asarray(U, dtype=complex)
     n_modes = U.shape[0]
@@ -90,11 +94,13 @@ def instructions_from_U(U: np.ndarray, topology: str) -> tuple[list[tuple[int, i
     elif topo in {"embedded_reck", "embedded_reck_in_clements"}:
         bs_params_raw, phases = _extract_decomposition(itf.triangle_decomposition(U))
         reck_instructions = _normalize_instructions(bs_params_raw, n_modes)
-        instructions = transform_instructions(reck_instructions, n_modes)
+        instructions = transform_instructions(reck_instructions, n_modes, embedded_total_modes)
 
-        embedded_phases = np.zeros(embedded_reck_mode_count(n_modes), dtype=float)
+        embedded_n = embedded_reck_mode_count(n_modes, embedded_total_modes)
+        n_ancilla = embedded_n - n_modes
+        embedded_phases = np.zeros(embedded_n, dtype=float)
         phases = np.asarray(phases, dtype=float)
-        embedded_phases[: phases.size] = phases
+        embedded_phases[n_ancilla : n_ancilla + phases.size] = phases
         return instructions, embedded_phases
     else:
         raise ValueError("topology must be 'Clements', 'Reck', or 'embedded_reck'.")
@@ -111,6 +117,7 @@ def get_Vout(
     d0: np.ndarray | None = None,
     eta: float = 0.9,
     topology: str = "Clements",
+    embedded_total_modes: int | None = None,
     get_device: bool = False,
 ):
     """Propagate an input Gaussian state through a target unitary and loss channel."""
@@ -118,14 +125,14 @@ def get_Vout(
     n_modes = U.shape[0]
     topo = topology.lower()
 
-    instructions, phases = instructions_from_U(U, topology)
+    instructions, phases = instructions_from_U(U, topology, embedded_total_modes=embedded_total_modes)
     if d0 is None:
         d0 = np.zeros(V0.shape[0], dtype=float)
 
     validate_covariance(V0.copy(), d0.copy(), hbar=1, tol=1e-12)
 
     if topo in {"embedded_reck", "embedded_reck_in_clements"}:
-        n_ancilla = embedded_reck_mode_count(n_modes) - n_modes
+        n_ancilla = embedded_reck_mode_count(n_modes, embedded_total_modes) - n_modes
         d_in, V_in = add_vacuum_ancillas(d0.copy(), V0.copy(), n_ancilla)
     else:
         d_in, V_in = d0.copy(), V0.copy()
@@ -136,7 +143,8 @@ def get_Vout(
         dev.apply_output_phases(phases)
 
     if topo in {"embedded_reck", "embedded_reck_in_clements"}:
-        d_out, V_out = reduce_gaussian_state(dev.d, dev.V, range(n_modes))
+        n_ancilla = embedded_reck_mode_count(n_modes, embedded_total_modes) - n_modes
+        d_out, V_out = reduce_gaussian_state(dev.d, dev.V, range(n_ancilla, n_ancilla + n_modes))
     else:
         d_out, V_out = dev.d, dev.V
 

@@ -48,6 +48,12 @@ def main():
         choices=("Clements", "Reck", "embedded_reck", "clements", "reck", "embedded_reck_in_clements"),
         help="Beam splitter network topology.",
     )
+    parser.add_argument(
+        "--embedded-total-modes",
+        type=int,
+        default=None,
+        help="Total Clements mesh size for embedded_reck. Must be at least 2*modes - 2.",
+    )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
     topology = _normalize_topology(args.topology)
@@ -57,7 +63,15 @@ def main():
     d0, V0 = random_squeezed_vacuum(args.modes, rng=rng)
     input_dev = GaussianDevice(d0.copy(), V0.copy(), instructions=()) # store the input state for reference
 
-    d_out, V_out, output_dev = get_Vout(U, V0, d0=d0, eta=args.eta, topology=topology, get_device=True)
+    d_out, V_out, output_dev = get_Vout(
+        U,
+        V0,
+        d0=d0,
+        eta=args.eta,
+        topology=topology,
+        embedded_total_modes=args.embedded_total_modes,
+        get_device=True,
+    )
 
     log_dir = PROJECT_ROOT / "demos" / "logs" / "demo_pipeline"
     log_dir.mkdir(parents=True, exist_ok=True)

@@ -40,11 +40,19 @@ def validate_covariance(V: np.ndarray, d: np.ndarray, hbar: float = 1.0, tol: fl
         raise ValueError("Robertson-Schroedinger uncertainty bound violated.")
 
 
-def embedded_reck_mode_count(n: int) -> int:
-    """Return the enlarged Clements mode count used to embed an n-mode Reck mesh."""
+def embedded_reck_mode_count(n: int, total_modes: int | None = None) -> int:
+    """Return the Clements mode count used to embed an n-mode Reck mesh."""
     if n < 1:
         raise ValueError("Number of modes must be positive.")
-    return n + n // 2
+    minimum = 2 * n - 2 if n > 1 else 1
+    if total_modes is None:
+        return minimum
+    if total_modes < minimum:
+        raise ValueError(
+            f"Embedded Reck on {n} logical modes does not fit into a Clements mesh with {total_modes} modes. "
+            f"It requires at least {minimum} total modes so that floor(N/2) >= n-1."
+        )
+    return int(total_modes)
 
 
 def _quadrature_indices(modes: Sequence[int], n_modes: int) -> np.ndarray:
@@ -62,7 +70,7 @@ def add_vacuum_ancillas(
     V: np.ndarray,
     n_ancilla: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Append vacuum ancillas to a Gaussian state while preserving quadrature ordering."""
+    """Prepend vacuum ancillas to a Gaussian state while preserving quadrature ordering."""
     if n_ancilla < 0:
         raise ValueError("Number of ancilla modes must be non-negative.")
 
@@ -73,7 +81,7 @@ def add_vacuum_ancillas(
         return d.copy(), V.copy()
 
     n_total = n_phys + n_ancilla
-    phys_quad = _quadrature_indices(range(n_phys), n_total)
+    phys_quad = _quadrature_indices(range(n_ancilla, n_total), n_total)
 
     d_out = np.zeros(2 * n_total, dtype=complex)
     V_out = 0.5 * np.eye(2 * n_total, dtype=complex)
@@ -501,7 +509,11 @@ def random_squeezed_vacuum(
 
 
 def build_instructions(
-    n: int, topology: str, rng: np.random.Generator | None = None, include_phases: bool = False
+    n: int,
+    topology: str,
+    rng: np.random.Generator | None = None,
+    include_phases: bool = False,
+    embedded_total_modes: int | None = None,
 ) -> Tuple[Instruction, ...]:
     """Generate a random beamsplitter network for a target topology."""
     rng = rng or np.random.default_rng()
@@ -537,7 +549,7 @@ def build_instructions(
                     reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
                 else:
                     reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
-        instructions = transform_instructions(reck_instructions, n)
+        instructions = transform_instructions(reck_instructions, n, embedded_total_modes)
     else:
         raise ValueError(f"Unknown topology '{topology}'.")
     return tuple(instructions)
@@ -555,7 +567,7 @@ def a(d, n):
 def my_sort(n):
     """
     provides the sorting mask generated from n (from Reck indexing) as a list of indices in the order they should be accessed for coloumn wise indexing
-    example: [1, 2, 3, 4, 5, 6] -> [1, 2, 4, 3, 5, 6]
+    example: [1, 2, 3, 4, 5, 6] -> [1, 2, 3, 4, 5, 6]
     """
     sorted_indices = []
 
@@ -566,39 +578,50 @@ def my_sort(n):
     #   2k + 1 <= n-2-(d-k)  -> k <= n-3-d
     for d in range(n-1):
         kmax_even = min(d, n - 2 - d)
-        for k in range(kmax_even + 1):
+        for k in range(kmax_even, -1, -1):
             sorted_indices.append(a(d-k, n) + 2*k)
 
         kmax_odd = min(d, n - 3 - d)
-        for k in range(kmax_odd + 1):
+        for k in range(kmax_odd, -1, -1):
             sorted_indices.append(a(d-k, n) + 2*k + 1)
 
     return sorted_indices
 
-def sort_and_insert(n):
+
+def reck_column_starts(n: int) -> list[int]:
+    """Return the 1-based start indices of the upward-pointing Reck columns."""
+    if n < 2:
+        return []
+
+    starts = list(range(1, n))
+    current = n - 1
+    for step in range(n - 2, 0, -1):
+        current += step
+        starts.append(current)
+    return starts
+
+def sort_and_insert(n, total_modes: int | None = None):
     """
     creates a flat list representing the n(n-1)//2 beam splitters of the reck scheme
     resorts them according to column wise indexing and inserts identity (marked as 0)
-    to get a full clements network for n + n//2 modes
+    to get a full clements network for the requested total mode count
     """
     instr = list(range(1, n*(n-1)//2 + 1))
 
     # Reorder according to the diagonal-wise / column-wise access pattern.
     sorted_instr = [instr[i - 1] for i in my_sort(n)]
 
-    enlarged_n = n + n//2
-    column_starts = []
-    for d in range(n - 1):
-        column_starts.append(a(d, n))
-        if d < n - 2:
-            column_starts.append(a(d, n) + 1)
+    enlarged_n = embedded_reck_mode_count(n, total_modes)
+    leading_empty_columns = 0 if enlarged_n % 2 == 0 else 1
+    available_columns = enlarged_n - leading_empty_columns
+    column_starts = reck_column_starts(n)
 
     # The start markers define the embedded Reck columns. For larger systems the
     # raw marker list can overshoot the target square Clements mesh by a few
     # trailing singleton columns, so merge those back into the last physical
     # column by dropping the extra terminal start markers.
-    if len(column_starts) > enlarged_n:
-        column_starts = column_starts[:enlarged_n]
+    if len(column_starts) > available_columns:
+        column_starts = column_starts[:available_columns]
 
     start_markers = set(column_starts[1:])
     embedded_columns = []
@@ -613,6 +636,9 @@ def sort_and_insert(n):
         embedded_columns.append(current_column)
 
     # Small even enlarged meshes need one final ghost column of identities.
+    if leading_empty_columns:
+        embedded_columns = [[] for _ in range(leading_empty_columns)] + embedded_columns
+
     while len(embedded_columns) < enlarged_n:
         embedded_columns.append([])
 
@@ -628,7 +654,7 @@ def sort_and_insert(n):
                 f"embedded column {i} has length {len(column)}, exceeds target length {target_len}"
             )
 
-        enlarged_instr_list.extend(column + ["Id"] * (target_len - len(column)))
+        enlarged_instr_list.extend(["Id"] * (target_len - len(column)) + column)
 
     return enlarged_instr_list
 
@@ -636,41 +662,15 @@ def sort_and_insert(n):
 def transform_instructions(
     reck_instructions: Sequence[Instruction],
     n: int,
+    total_modes: int | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """
     Embed an n-mode Reck instruction list into a larger Clements mesh.
 
     The returned instructions act on a Clements network of size
-    ``embedded_reck_mode_count(n)``. Identity beamsplitters are inserted with
+    ``embedded_reck_mode_count(n, total_modes)``. Identity beamsplitters are inserted with
     ``theta = phi = 0`` so later loss or drift models still see the full mesh.
     """
-    # TODO(embedded_reck): The current handcrafted embedding still does not
-    # reproduce the lossless Reck result after tracing out ancillas.
-    #
-    # What has already been verified:
-    # - Internal indexing is now consistently 0-based inside LoGIC.
-    # - The plain Reck and Clements paths agree in the lossless case up to
-    #   numerical precision, so the remaining bug is specific to the embedded
-    #   Reck construction.
-    # - Ancilla padding / reduction is not the culprit by itself.
-    #
-    # Current diagnosis:
-    # - `my_sort(n)` has the correct length n(n-1)/2 and is consistent with the
-    #   interferometer package's downward-pointing triangle ordering.
-    # - `sort_and_insert(n)` now matches the expected square Clements slot count
-    #   for N = n + n//2 total modes.
-    # - However, mapping the reordered Reck instruction list into the enlarged
-    #   Clements mesh by simply filling the non-Id slots in column order is
-    #   still geometrically wrong: the resulting embedded unitary does not match
-    #   the lossless Reck unitary on the logical system block.
-    #
-    # Implication:
-    # - The remaining issue is the physical slot geometry of the embedded
-    #   triangle inside the rectangular mesh, i.e. the exact (column, row)
-    #   locations where each active Reck beamsplitter must be placed.
-    # - Before changing this logic again, derive that 2D slot map explicitly
-    #   from the intended experimental layout and then update
-    #   `sort_and_insert` / `transform_instructions` together.
     expected_len = n * (n - 1) // 2
     if len(reck_instructions) != expected_len:
         raise ValueError(
@@ -689,8 +689,8 @@ def transform_instructions(
             raise ValueError("Instructions must be length 3 or 4.")
         normalized.append((int(k), int(l), float(theta), float(phi)))
 
-    slot_mask = sort_and_insert(n)
-    embedded_n = embedded_reck_mode_count(n)
+    slot_mask = sort_and_insert(n, total_modes)
+    embedded_n = embedded_reck_mode_count(n, total_modes)
     target_pairs = _clements_mode_pairs(embedded_n)
     if len(slot_mask) != len(target_pairs):
         raise ValueError(

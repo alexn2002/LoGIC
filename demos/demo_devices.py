@@ -74,6 +74,12 @@ def main() -> None:
         choices=("Clements", "Reck", "embedded_reck", "clements", "reck", "embedded_reck_in_clements"),
         help="Beam splitter network topology.",
     )
+    parser.add_argument(
+        "--embedded-total-modes",
+        type=int,
+        default=None,
+        help="Total Clements mesh size for embedded_reck. Must be at least 2*modes - 2.",
+    )
     parser.add_argument("--seed", type=int, default=123, help="Random seed for reproducibility.")
     args = parser.parse_args()
 
@@ -88,16 +94,22 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 2) Build a random instruction list for the interferometer
     # ------------------------------------------------------------------
-    instructions = build_instructions(args.modes, topology, rng=rng, include_phases=False)
+    instructions = build_instructions(
+        args.modes,
+        topology,
+        rng=rng,
+        include_phases=False,
+        embedded_total_modes=args.embedded_total_modes,
+    )
     if topology == "embedded_reck":
-        embedded_modes = embedded_reck_mode_count(args.modes)
+        embedded_modes = embedded_reck_mode_count(args.modes, args.embedded_total_modes)
         d_work, V_work = add_vacuum_ancillas(
             d_in.copy(),
             V_in.copy(),
             embedded_modes - args.modes,
         )
         output_phases = np.zeros(embedded_modes, dtype=float)
-        output_phases[: args.modes] = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
+        output_phases[embedded_modes - args.modes :] = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
     else:
         d_work, V_work = d_in.copy(), V_in.copy()
         output_phases = rng.uniform(0.0, 2.0 * np.pi, size=args.modes)
@@ -117,7 +129,8 @@ def main() -> None:
     device.apply_network(eta=args.eta)
     device.apply_output_phases(output_phases)
     if topology == "embedded_reck":
-        d_out, V_out = reduce_gaussian_state(device.d, device.V, range(args.modes))
+        n_ancilla = embedded_modes - args.modes
+        d_out, V_out = reduce_gaussian_state(device.d, device.V, range(n_ancilla, embedded_modes))
         output_device = GaussianDevice(d_out, V_out, instructions=())
     else:
         output_device = device

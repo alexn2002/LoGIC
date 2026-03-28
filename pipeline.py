@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import numpy as np
 import interferometer as itf
+from scipy.io import mmread, mmwrite
 
 from devices import (
     GaussianDevice,
@@ -141,3 +145,220 @@ def get_Vout(
     if get_device:
         return d_out, V_out, dev
     return d_out, V_out
+
+
+def _format_real(value: float) -> str:
+    if value == 0.0:
+        return "0"
+    exp = int(np.floor(np.log10(abs(value))))
+    mant = value / (10 ** exp)
+    return f"{mant:.16f}*^{exp}"
+
+
+def _format_number(val: complex, tol: float = 1e-12) -> str:
+    real = float(np.real(val))
+    imag = float(np.imag(val))
+    if abs(imag) <= tol:
+        return _format_real(real)
+    if abs(real) <= tol:
+        return f"{_format_real(imag)} I"
+    sign = "+" if imag >= 0 else "-"
+    imag_str = f"{_format_real(abs(imag))} I"
+    return f"{_format_real(real)} {sign} {imag_str}"
+
+
+def _matrix_to_wl(matrix: np.ndarray) -> str:
+    rows = []
+    for row in matrix:
+        entries = ",".join(_format_number(v) for v in row)
+        rows.append("{" + entries + "}")
+    return "{" + ",".join(rows) + "}"
+
+
+def _extract_three_digit_suffix(stem: str, prefix: str) -> str:
+    match = re.fullmatch(rf"{re.escape(prefix)}(\d{{3}})", stem)
+    if match is None:
+        raise ValueError(
+            f"Filename '{stem}' does not follow the expected naming scheme '{prefix}###'."
+        )
+    return match.group(1)
+
+
+def _normalize_topology_label(topology: str) -> str:
+    topo = topology.lower()
+    if topo == "clements":
+        return "Clements"
+    if topo == "reck":
+        return "Reck"
+    if topo in {"embedded_reck", "embedded_reck_in_clements"}:
+        return "embedded_reck"
+    raise ValueError("topology must be 'Clements', 'Reck', or 'embedded_reck'.")
+
+
+def _load_unitary_from_mtx(matrix_path: Path, n_modes: int) -> np.ndarray:
+    data = mmread(str(matrix_path))
+    arr = np.asarray(data.todense() if hasattr(data, "todense") else data)
+
+    stem = matrix_path.stem
+    if stem == "symplectic" or stem.startswith("symplectic"):
+        arr = np.asarray(arr, dtype=float)
+        if arr.shape != (2 * n_modes, 2 * n_modes):
+            raise ValueError(
+                f"Symplectic matrix '{matrix_path.name}' has shape {arr.shape}, expected {(2 * n_modes, 2 * n_modes)}."
+            )
+        X = np.asarray(arr[:n_modes, :n_modes], dtype=float)
+        Y = np.asarray(arr[n_modes:, :n_modes], dtype=float)
+        return X + 1j * Y if np.linalg.norm(Y) >= 1e-12 else X.astype(float)
+
+    if stem == "unitary" or stem.startswith("unitary"):
+        arr = np.asarray(arr, dtype=complex)
+        if arr.shape != (n_modes, n_modes):
+            raise ValueError(
+                f"Unitary matrix '{matrix_path.name}' has shape {arr.shape}, expected {(n_modes, n_modes)}."
+            )
+        return arr
+
+    raise ValueError(
+        f"Matrix filename '{matrix_path.name}' must start with 'symplectic' or 'unitary'."
+    )
+
+
+def _discover_static_matrix_file(matrix_dir: Path) -> Path:
+    unitary_path = matrix_dir / "unitary.mtx"
+    symplectic_path = matrix_dir / "symplectic.mtx"
+    found = [path for path in (unitary_path, symplectic_path) if path.exists()]
+    if not found:
+        raise FileNotFoundError(
+            f"No static matrix file found in '{matrix_dir}'. Expected 'unitary.mtx' or 'symplectic.mtx'."
+        )
+    if len(found) > 1:
+        raise ValueError(
+            f"Ambiguous matrix specification in '{matrix_dir}': found both 'unitary.mtx' and 'symplectic.mtx'."
+        )
+    return found[0]
+
+
+def _discover_time_dependent_matrix_files(matrix_dir: Path) -> dict[str, Path]:
+    candidates = sorted(matrix_dir.glob("*.mtx"))
+    by_index: dict[str, Path] = {}
+    total = 0
+    for path in candidates:
+        stem = path.stem
+        is_symplectic = stem.startswith("symplectic")
+        is_unitary = stem.startswith("unitary")
+        if not (is_symplectic or is_unitary):
+            continue
+        prefix = "symplectic" if is_symplectic else "unitary"
+        idx = _extract_three_digit_suffix(stem, prefix)
+        if idx in by_index:
+            raise ValueError(
+                f"Ambiguous matrix specification for index {idx} in '{matrix_dir}': "
+                f"found both '{by_index[idx].name}' and '{path.name}'."
+            )
+        by_index[idx] = path
+        total += 1
+    if total == 0:
+        raise FileNotFoundError(
+            f"No time-dependent matrix files found in '{matrix_dir}'. Expected files named 'symplectic###.mtx' or 'unitary###.mtx'."
+        )
+    return by_index
+
+
+def input_mtx_to_output_mtx(
+    input_dir: Path | str,
+    matrix_dir: Path | str,
+    eta: float = 0.9,
+    topology: str = "Clements",
+    output_dir: Path | str | None = None,
+    return_wl: bool = False,
+    time_dependent_unitary: bool = False,
+    embedded_total_modes: int | None = None,
+) -> dict[str, Path]:
+    """
+    High-level wrapper that propagates input covariance .mtx files through a
+    shared or time-dependent unitary/symplectic process and writes the output
+    covariance matrices in the same style as demo_literature.py.
+    """
+    input_dir = Path(input_dir)
+    matrix_dir = Path(matrix_dir)
+    topology_label = _normalize_topology_label(topology)
+
+    if not input_dir.is_dir():
+        raise FileNotFoundError(f"Input covariance directory not found: {input_dir}")
+    if not matrix_dir.is_dir():
+        raise FileNotFoundError(f"Matrix directory not found: {matrix_dir}")
+
+    input_files = sorted(input_dir.glob("input_cov*.mtx"))
+    if not input_files:
+        raise FileNotFoundError(
+            f"No input covariance files found in '{input_dir}'. Expected files named 'input_cov###.mtx'."
+        )
+
+    input_by_index: dict[str, Path] = {}
+    for path in input_files:
+        idx = _extract_three_digit_suffix(path.stem, "input_cov")
+        input_by_index[idx] = path
+
+    if output_dir is None:
+        output_root = Path(__file__).resolve().parent / "demos" / "output_covariance_mtx"
+    else:
+        output_root = Path(output_dir)
+    topology_dir = output_root / topology_label
+    topology_dir.mkdir(parents=True, exist_ok=True)
+
+    eta_tag = f"ETA{int(round(eta * 100)):03d}"
+    written_files: dict[str, Path] = {}
+    wl_matrices: list[str] = []
+
+    if time_dependent_unitary:
+        matrix_by_index = _discover_time_dependent_matrix_files(matrix_dir)
+        if len(matrix_by_index) != len(input_by_index):
+            raise ValueError(
+                f"time_dependent_unitary=True requires the same number of input and matrix files, "
+                f"got {len(input_by_index)} inputs and {len(matrix_by_index)} matrices."
+            )
+        missing = sorted(set(input_by_index) - set(matrix_by_index))
+        if missing:
+            raise ValueError(
+                f"Missing matching unitary/symplectic files for input indices: {', '.join(missing)}."
+            )
+        work_items = [(idx, input_by_index[idx], matrix_by_index[idx]) for idx in sorted(input_by_index)]
+    else:
+        matrix_path = _discover_static_matrix_file(matrix_dir)
+        work_items = [(idx, path, matrix_path) for idx, path in sorted(input_by_index.items())]
+
+    for idx, cov_path, matrix_path in work_items:
+        data = mmread(str(cov_path))
+        V0 = np.asarray(data.todense() if hasattr(data, "todense") else data, dtype=float)
+        if V0.ndim != 2 or V0.shape[0] != V0.shape[1] or V0.shape[0] % 2 != 0:
+            raise ValueError(f"Input covariance '{cov_path.name}' must be an even square matrix.")
+
+        n_modes = V0.shape[0] // 2
+        U = _load_unitary_from_mtx(matrix_path, n_modes)
+        d0 = np.zeros(V0.shape[0], dtype=float)
+        _, V_out = get_Vout(
+            U,
+            V0,
+            d0=d0,
+            eta=eta,
+            topology=topology_label,
+            embedded_total_modes=embedded_total_modes,
+        )
+
+        out_name = f"{topology_label}_{idx}_{eta_tag}.mtx"
+        out_path = topology_dir / out_name
+        mmwrite(out_path, np.asarray(V_out))
+        written_files[idx] = out_path
+        if return_wl:
+            wl_matrices.append(_matrix_to_wl(np.asarray(V_out, dtype=complex)))
+
+    result: dict[str, Path] = {"mtx_dir": topology_dir}
+    if return_wl and wl_matrices:
+        wl_root = Path(__file__).resolve().parent / "demos" / "output_covariance_wl"
+        wl_root.mkdir(parents=True, exist_ok=True)
+        wl_path = wl_root / f"{topology_label}_{eta_tag}.wl"
+        content = "{\n" + ",\n".join(wl_matrices) + "\n}"
+        wl_path.write_text(content, encoding="utf-8")
+        result["wl_path"] = wl_path
+
+    return result

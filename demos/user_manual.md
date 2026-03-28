@@ -181,6 +181,112 @@ It also writes a log file:
      print("Covariance shape:", V_out.shape)
      ```
 
+### High-level batch wrapper in `pipeline.py`
+
+The file [pipeline.py](../pipeline.py) also provides a higher-level helper:
+
+```python
+input_mtx_to_output_mtx(...)
+```
+
+Purpose
+- Load input covariance matrices from `.mtx` files
+- Load a unitary or symplectic process matrix from `.mtx` files
+- Propagate each input with `get_Vout(...)`
+- Write one output covariance matrix per input in `.mtx` format
+- Optionally write one aggregated Wolfram Language `.wl` file
+
+Typical use
+
+```python
+from pathlib import Path
+from pipeline import input_mtx_to_output_mtx
+
+result = input_mtx_to_output_mtx(
+    input_dir=Path("./demos/input_covariance_mtx"),
+    matrix_dir=Path("./demos/interferometer_symplectic"),
+    eta=0.9,
+    topology="Clements",
+    output_dir=Path("./demos/output_covariance_mtx"),
+    return_wl=True,
+    time_dependent_unitary=False,
+)
+```
+
+Arguments
+- `input_dir`: directory containing input covariance files
+- `matrix_dir`: directory containing unitary or symplectic `.mtx` files
+- `eta`: loss transmissivity passed to `get_Vout(...)`
+- `topology`: `Clements`, `Reck`, or `embedded_reck`
+- `output_dir`: root directory for output `.mtx` files
+- `return_wl`: if `True`, also write one aggregated `.wl` file
+- `time_dependent_unitary`: if `True`, use strict per-time-step matrix matching
+- `embedded_total_modes`: optional total Clements mesh size for `embedded_reck`
+
+Output conventions
+- `.mtx` results are written into a topology subfolder:
+  - `<output_dir>/Clements/`
+  - `<output_dir>/Reck/`
+  - `<output_dir>/embedded_reck/`
+- Output filenames follow the same literature-style convention:
+  - `Clements_001_ETA090.mtx`
+  - `Reck_001_ETA090.mtx`
+  - `embedded_reck_001_ETA090.mtx`
+- If `return_wl=True`, one aggregated `.wl` file is written to:
+  - `demos/output_covariance_wl/<Topology>_ETA090.wl`
+
+Matrix format conventions
+- Input covariance matrices must be Gaussian covariance matrices of shape `2n x 2n`
+- If the matrix file is a symplectic file, it must also have shape `2n x 2n`
+- If the matrix file is a unitary file, it must have shape `n x n`
+
+Example:
+- an `8 x 8` covariance matrix corresponds to `n = 4` modes
+- a matching symplectic matrix must then also be `8 x 8`
+- a matching unitary matrix must be `4 x 4`
+
+#### Static matrix mode: `time_dependent_unitary=False`
+
+This is the default behavior.
+
+Expected matrix filenames in `matrix_dir`
+- `symplectic.mtx`, or
+- `unitary.mtx`
+
+Rules
+- Exactly one of these files must exist
+- If both exist, the wrapper raises an ambiguity error
+- The same matrix is applied to every input covariance file
+
+#### Time-dependent matrix mode: `time_dependent_unitary=True`
+
+This mode is intended for time-dependent propagation where each input covariance
+must be paired with its own process matrix.
+
+Expected filenames
+- Input covariance files:
+  - `input_cov001.mtx`
+  - `input_cov002.mtx`
+  - `input_cov123.mtx`
+- Matrix files:
+  - `symplectic001.mtx`, `symplectic002.mtx`, ...
+  - or `unitary001.mtx`, `unitary002.mtx`, ...
+
+Required matching rule
+- Files are paired strictly by the 3-digit suffix
+- Example:
+  - `input_cov123.mtx` pairs only with `symplectic123.mtx`
+  - `input_cov123.mtx` pairs only with `unitary123.mtx`
+
+Validation rules
+- The number of matrix files must equal the number of input files
+- Every input file must have exactly one matching matrix file
+- Filenames must follow the expected naming scheme exactly
+- If both `symplectic###.mtx` and `unitary###.mtx` exist for the same index, the wrapper raises an ambiguity error
+- If any index is missing, the wrapper raises a clear error
+
+This strict behavior is intentional and helps avoid silent misalignment of time steps.
+
 -----------------------------------------------------------------------
 demo_literature.py (see [demos/demo_literature.py](demo_literature.py))
 -----------------------------------------------------------------------

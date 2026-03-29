@@ -597,11 +597,24 @@ def build_instructions(
     """Generate a random beamsplitter network for a target topology."""
     rng = rng or np.random.default_rng()
     instructions: list[Instruction] = []
-    if topology.lower() == "reck":
+    topo = topology.lower()
+    if topo == "reck":
+        for ii in range(n - 1):
+            for jj in range(n - 1 - ii):
+                k = n - jj - 2
+                l = n - jj - 1
+                if include_phases:
+                    instructions.append((k, l, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
+                else:
+                    instructions.append((k, l, rng.uniform(0.0, TWOPI)))
+    elif topo in {"reck down", "reck_down", "reck-down"}:
         for k in range(n, 1, -1):
             for j in range(1, k):
-                instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
-    elif topology.lower() == "clements":
+                if include_phases:
+                    instructions.append((j - 1, j, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
+                else:
+                    instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
+    elif topo == "clements":
         # simple random beamsplitter network: alternating layers
         for _ in range(n // 2):
             for k in range(0, n - 1, 2):
@@ -620,14 +633,16 @@ def build_instructions(
                     instructions.append((k, k + 1, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
                 else:
                     instructions.append((k, k + 1, rng.uniform(0.0, TWOPI)))
-    elif topology.lower() in {"embedded_reck", "embedded_reck_in_clements"}:
+    elif topo in {"embedded_reck", "embedded_reck_in_clements"}:
         reck_instructions: list[Instruction] = []
-        for k in range(n, 1, -1):
-            for j in range(1, k):
+        for ii in range(n - 1):
+            for jj in range(n - 1 - ii):
+                k = n - jj - 2
+                l = n - jj - 1
                 if include_phases:
-                    reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
+                    reck_instructions.append((k, l, rng.uniform(0.0, TWOPI), rng.uniform(0.0, TWOPI)))
                 else:
-                    reck_instructions.append((j - 1, j, rng.uniform(0.0, TWOPI)))
+                    reck_instructions.append((k, l, rng.uniform(0.0, TWOPI)))
         instructions = transform_instructions(reck_instructions, n, embedded_total_modes)
     else:
         raise ValueError(f"Unknown topology '{topology}'.")

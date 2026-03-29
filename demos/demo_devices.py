@@ -37,6 +37,8 @@ def _normalize_topology(label: str) -> str:
         return "Clements"
     if topo == "reck":
         return "Reck"
+    if topo in {"reck down", "reck_down", "reck-down"}:
+        return "Reck down"
     if topo in {"embedded_reck", "embedded_reck_in_clements"}:
         return "embedded_reck"
     raise ValueError(f"Unsupported topology: {label}")
@@ -68,7 +70,16 @@ def main() -> None:
         "--topology",
         type=str,
         default="Clements",
-        choices=("Clements", "Reck", "embedded_reck", "clements", "reck", "embedded_reck_in_clements"),
+        choices=(
+            "Clements",
+            "Reck",
+            "Reck down",
+            "reck_down",
+            "clements",
+            "reck",
+            "embedded_reck",
+            "embedded_reck_in_clements",
+        ),
         help="Beam splitter network topology.",
     )
     parser.add_argument(

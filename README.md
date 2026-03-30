@@ -34,6 +34,12 @@ python demos/demo_literature.py --input-dir demos/input_covariance_mtx --eta 0.9
 
 Results land in `demos/output_covariance_mtx/` (ignored by git).
 
+The same workflow is also available through a top-level CLI for [`pipeline.run_on_files(...)`](pipeline.py):
+
+```bash
+python main.py run_on_files --input-dir demos/input_covariance_mtx --unitary-dir demos/interferometer_symplectic --output-dir demos/notebook_outputs --output-format wl --eta 0.9 --topology Clements --time-dependent false
+```
+
 ## API highlight
 
 ```python
@@ -55,6 +61,7 @@ For `topology="embedded_reck"`, the code first computes a Reck decomposition, tr
 
 - [`devices.py`](devices.py) — core [`GaussianDevice`](devices.py#L85) class, covariance validation, random squeezed-state helpers, and beamsplitter-network builders.
 - [`pipeline.py`](pipeline.py) — thin wrapper that decomposes a target unitary and feeds it through [`GaussianDevice`](devices.py#L85).
+- [`main.py`](main.py) — top-level CLI entry point, including `run_on_files`.
 - [`demos/`](demos/) directory containing different code demonstrations and CLIs. Read the [user manual](demos/user_manual.md) for more information.
 - [`demos/user_manual.md`](demos/user_manual.md) — supplementary sheet for the `demos/` directory
 - [`demos/demo_devices.py`](demos/demo_devices.py) — introducionary demo for devices.py

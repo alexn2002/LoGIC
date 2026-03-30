@@ -234,6 +234,24 @@ Output conventions
 - If `output_format="wl"`, one aggregated `.wl` file is written to:
   - `<output_dir>/<Topology>_ETA090.wl`
 
+CLI access
+
+The same wrapper is also exposed through the top-level command line entry point [main.py](../main.py):
+
+```bash
+python ./main.py run_on_files --input-dir ./demos/input_covariance_mtx --unitary-dir ./demos/interferometer_symplectic --output-dir ./demos/notebook_outputs --output-format wl --eta 0.9 --topology Clements --time-dependent false
+```
+
+CLI arguments
+- `--input-dir`: directory containing `input_cov###.mtx` files
+- `--unitary-dir`: directory containing `unitary*.mtx` or `symplectic*.mtx` files
+- `--output-dir`: destination directory for the selected output format
+- `--output-format`: `mtx` or `wl`
+- `--eta`: loss transmissivity passed to `get_Vout(...)`
+- `--topology`: `Clements`, `Reck`, or `embedded_reck`
+- `--time-dependent`: boolean flag value such as `true` or `false`
+- `--embedded-total-modes`: optional total Clements mesh size for `embedded_reck`
+
 Matrix format conventions
 - Input covariance matrices must be Gaussian covariance matrices of shape `2n x 2n`
 - If the matrix file is a symplectic file, it must also have shape `2n x 2n`

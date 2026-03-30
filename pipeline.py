@@ -264,13 +264,13 @@ def _discover_time_dependent_matrix_files(matrix_dir: Path) -> dict[str, Path]:
     return by_index
 
 
-def input_mtx_to_output_mtx(
+def run_on_files(
     input_dir: Path | str,
     matrix_dir: Path | str,
     eta: float = 0.9,
     topology: str = "Clements",
     output_dir: Path | str | None = None,
-    return_wl: bool = False,
+    output_format: str = "mtx",
     time_dependent_unitary: bool = False,
     embedded_total_modes: int | None = None,
 ) -> dict[str, Path]:
@@ -282,6 +282,9 @@ def input_mtx_to_output_mtx(
     input_dir = Path(input_dir)
     matrix_dir = Path(matrix_dir)
     topology_label = _normalize_topology_label(topology)
+    output_format_normalized = output_format.lower()
+    if output_format_normalized not in {"mtx", "wl"}:
+        raise ValueError("output_format must be 'mtx' or 'wl'.")
 
     if not input_dir.is_dir():
         raise FileNotFoundError(f"Input covariance directory not found: {input_dir}")
@@ -300,15 +303,21 @@ def input_mtx_to_output_mtx(
         input_by_index[idx] = path
 
     if output_dir is None:
-        output_root = Path(__file__).resolve().parent / "demos" / "output_covariance_mtx"
+        default_name = "output_covariance_mtx" if output_format_normalized == "mtx" else "output_covariance_wl"
+        output_root = Path(__file__).resolve().parent / "demos" / default_name
     else:
         output_root = Path(output_dir)
-    topology_dir = output_root / topology_label
-    topology_dir.mkdir(parents=True, exist_ok=True)
 
     eta_tag = f"ETA{int(round(eta * 100)):03d}"
     written_files: dict[str, Path] = {}
-    wl_matrices: list[str] = []
+    wl_matrices: list[str] = [] if output_format_normalized == "wl" else []
+
+    if output_format_normalized == "mtx":
+        output_target = output_root / topology_label
+        output_target.mkdir(parents=True, exist_ok=True)
+    else:
+        output_target = output_root
+        output_target.mkdir(parents=True, exist_ok=True)
 
     if time_dependent_unitary:
         matrix_by_index = _discover_time_dependent_matrix_files(matrix_dir)
@@ -345,20 +354,20 @@ def input_mtx_to_output_mtx(
             embedded_total_modes=embedded_total_modes,
         )
 
-        out_name = f"{topology_label}_{idx}_{eta_tag}.mtx"
-        out_path = topology_dir / out_name
-        mmwrite(out_path, np.asarray(V_out))
-        written_files[idx] = out_path
-        if return_wl:
+        if output_format_normalized == "mtx":
+            out_name = f"{topology_label}_{idx}_{eta_tag}.mtx"
+            out_path = output_target / out_name
+            mmwrite(out_path, np.asarray(V_out))
+            written_files[idx] = out_path
+        else:
             wl_matrices.append(_matrix_to_wl(np.asarray(V_out, dtype=complex)))
 
-    result: dict[str, Path] = {"mtx_dir": topology_dir}
-    if return_wl and wl_matrices:
-        wl_root = Path(__file__).resolve().parent / "demos" / "output_covariance_wl"
-        wl_root.mkdir(parents=True, exist_ok=True)
-        wl_path = wl_root / f"{topology_label}_{eta_tag}.wl"
+    if output_format_normalized == "mtx":
+        result: dict[str, Path] = {"output_dir": output_target}
+    else:
+        wl_path = output_target / f"{topology_label}_{eta_tag}.wl"
         content = "{\n" + ",\n".join(wl_matrices) + "\n}"
         wl_path.write_text(content, encoding="utf-8")
-        result["wl_path"] = wl_path
+        result = {"output_path": wl_path}
 
     return result

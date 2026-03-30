@@ -812,7 +812,8 @@ def effective_loss_curve(n: int, rng: np.random.Generator | None = None):
     vacuum = GaussianDevice(d, V, instructions=())
     N_vac = vacuum.exp_photon_number()
 
-    etas = 1 - np.logspace(-5, -0.5, 25)
+    eta_half = np.logspace(-5, math.log10(0.5), 25, endpoint=False)
+    etas = np.concatenate([eta_half, np.array([0.5]), 1.0 - eta_half[::-1]])
     curves = {}
     for topo in ("Reck", "Clements"):
         device = GaussianDevice(d.copy(), V.copy(), instructions=build_instructions(n, topo, rng))

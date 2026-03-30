@@ -186,29 +186,28 @@ It also writes a log file:
 The file [pipeline.py](../pipeline.py) also provides a higher-level helper:
 
 ```python
-input_mtx_to_output_mtx(...)
+run_on_files(...)
 ```
 
 Purpose
 - Load input covariance matrices from `.mtx` files
 - Load a unitary or symplectic process matrix from `.mtx` files
 - Propagate each input with `get_Vout(...)`
-- Write one output covariance matrix per input in `.mtx` format
-- Optionally write one aggregated Wolfram Language `.wl` file
+- Write output either as one `.mtx` covariance file per input or as one aggregated Wolfram Language `.wl` file
 
 Typical use
 
 ```python
 from pathlib import Path
-from pipeline import input_mtx_to_output_mtx
+from pipeline import run_on_files
 
-result = input_mtx_to_output_mtx(
+result = run_on_files(
     input_dir=Path("./demos/input_covariance_mtx"),
     matrix_dir=Path("./demos/interferometer_symplectic"),
     eta=0.9,
     topology="Clements",
     output_dir=Path("./demos/output_covariance_mtx"),
-    return_wl=True,
+    output_format="mtx",
     time_dependent_unitary=False,
 )
 ```
@@ -218,22 +217,22 @@ Arguments
 - `matrix_dir`: directory containing unitary or symplectic `.mtx` files
 - `eta`: loss transmissivity passed to `get_Vout(...)`
 - `topology`: `Clements`, `Reck`, or `embedded_reck`
-- `output_dir`: root directory for output `.mtx` files
-- `return_wl`: if `True`, also write one aggregated `.wl` file
+- `output_dir`: root directory where the requested output format is written
+- `output_format`: `"mtx"` or `"wl"`; selects which output format is written
 - `time_dependent_unitary`: if `True`, use strict per-time-step matrix matching
 - `embedded_total_modes`: optional total Clements mesh size for `embedded_reck`
 
 Output conventions
-- `.mtx` results are written into a topology subfolder:
+- If `output_format="mtx"`, results are written into a topology subfolder:
   - `<output_dir>/Clements/`
   - `<output_dir>/Reck/`
   - `<output_dir>/embedded_reck/`
-- Output filenames follow the same literature-style convention:
+- `.mtx` filenames follow the same literature-style convention:
   - `Clements_001_ETA090.mtx`
   - `Reck_001_ETA090.mtx`
   - `embedded_reck_001_ETA090.mtx`
-- If `return_wl=True`, one aggregated `.wl` file is written to:
-  - `demos/output_covariance_wl/<Topology>_ETA090.wl`
+- If `output_format="wl"`, one aggregated `.wl` file is written to:
+  - `<output_dir>/<Topology>_ETA090.wl`
 
 Matrix format conventions
 - Input covariance matrices must be Gaussian covariance matrices of shape `2n x 2n`

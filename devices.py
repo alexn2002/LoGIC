@@ -20,8 +20,8 @@ Instruction = Union[Tuple[int, int, float], Tuple[int, int, float, float]]
 
 def validate_covariance(V: np.ndarray, d: np.ndarray, hbar: float = 1.0, tol: float = 1e-10) -> None:
     """Validate that (d, V) encodes a physical Gaussian state."""
-    V = np.asarray(V, dtype=float)
-    d = np.asarray(d, dtype=float).reshape(-1)
+    V = np.asarray(np.real_if_close(V), dtype=float)
+    d = np.asarray(np.real_if_close(d), dtype=float).reshape(-1)
 
     if V.ndim != 2 or V.shape[0] != V.shape[1]:
         raise ValueError("Covariance matrix must be square.")
@@ -171,8 +171,8 @@ class GaussianDevice:
     rng: np.random.Generator = field(default_factory=lambda: np.random.default_rng(42))
 
     def __post_init__(self) -> None:
-        d_real = np.asarray(self.d, dtype=float).reshape(-1)
-        V_real = np.asarray(self.V, dtype=float)
+        d_real = np.asarray(np.real_if_close(self.d), dtype=float).reshape(-1)
+        V_real = np.asarray(np.real_if_close(self.V), dtype=float)
         validate_covariance(V_real, d_real)
         self.n = V_real.shape[0] // 2
         # keep complex dtype to preserve phase information through the network

@@ -261,8 +261,8 @@ Single-file format conventions
   - `json style`
   - `wolfram style`
   - `matlab style`
-- If a supported style is detected, the wrapper emits a warning explaining that plain-text matrix files may be ambiguous and that native formats are preferred.
-- If the style cannot be identified, the wrapper raises a clear error instead of guessing.
+- If a supported style is detected, the wrapper emits a warning stating which style was detected and that native file types are preferred, the code will continue to run with the detected style
+- Else the wrapper emits an error and stops
 
 CLI access
 

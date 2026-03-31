@@ -12,10 +12,30 @@ For details, see the [demo_literature.py](demos/demo_literature.py) section in t
 
 ## Quick start
 
+Install from the local source tree:
+
 ```bash
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+The package can also be installed with:
+
+```bash
+pip install logic-jena
+```
+
+After installation, the Python API is available as:
+
+```python
+from logic.pipeline import run_on_files
+```
+
+and the CLI is available as:
+
+```bash
+logic run_on_files --help
 ```
 
 Run a basic simulation of a random squeezed input through a random beam splitter network:
@@ -95,10 +115,11 @@ For `topology="embedded_reck"`, the code first computes a Reck decomposition, tr
 
 ## Notes
 
-- Requires Python 3.10+ and the packages listed in `requirements.txt`.
+- Requires Python 3.11+ and the packages listed in `requirements.txt`.
 - The Python API and demo CLIs support `Clements`, `Reck`, and `embedded_reck`.
 - `run_on_files(...)` supports `.mtx` directory mode plus single-file `.json`, `.pickle`, `.npz`, `.h5py`, and `.txt` workflows.
 - If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.
+- The first PyPI prerelease version is `0.1.0rc2`, corresponding to the GitHub prerelease tag `v0.1.0-rc.2`.
 
 ## DISCLAIMER
 We observed hardware-dependent numerical differences when simulating large beam splitter networks in finite precision. In particular, using the same code version of [demos/demo_literature.py](demos/demo_literature.py) on different machines produced output covariance matrices whose *difference* had a Frobenius norm on the order of 1e-2 for the 25×25 case. Repeated runs on the same machine did not show such deviations. These differences did not materially affect the information‑theoretic analysis in [D'Achille et al.][paper], for which this code was developed.

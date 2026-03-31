@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logic-jena"
+version = "0.1.0rc2"
+description = "PyPI package based on the LoGIC repo for simulating loss effected gaussian interferometers."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Alexander Naumann", email = "alexander.naumann@uni-jena.de" }
+]
+keywords = [
+  "gaussian",
+  "interferometer",
+  "photonic",
+  "quantum optics",
+  "lossy interferometers"
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics"
+]
+dependencies = [
+  "numpy",
+  "scipy",
+  "interferometer"
+]
+
+[project.optional-dependencies]
+h5py = ["h5py"]
+plot = ["matplotlib"]
+notebook = ["matplotlib", "ipykernel", "h5py"]
+dev = ["build", "twine", "matplotlib", "ipykernel", "h5py"]
+
+[project.urls]
+Homepage = "https://github.com/alexn2002/LoGIC"
+Repository = "https://github.com/alexn2002/LoGIC"
+
+[project.scripts]
+logic = "logic.cli:main"
+
+[tool.setuptools]
+py-modules = ["devices", "pipeline", "main"]
+
+[tool.setuptools.packages.find]
+include = ["logic"]

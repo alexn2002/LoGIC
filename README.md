@@ -34,11 +34,21 @@ python demos/demo_literature.py --input-dir demos/input_covariance_mtx --eta 0.9
 
 Results land in `demos/output_covariance_mtx/` (ignored by git).
 
-The same workflow is also available through a top-level CLI for [`pipeline.run_on_files(...)`](pipeline.py):
+The same workflow is also available through a top-level CLI for [`pipeline.run_on_files(...)`](pipeline.py). The wrapper supports the original `.mtx` directory workflow and a newer single-file workflow for `.json`, `.pickle`, `.npz`, `.h5py`, and `.txt` files.
 
 ```bash
 python main.py run_on_files --input-dir demos/input_covariance_mtx --unitary-dir demos/interferometer_symplectic --output-dir demos/notebook_outputs --output-format wl --eta 0.9 --topology Clements --time-dependent false
 ```
+
+Example for the single-file JSON workflow:
+
+```bash
+python main.py run_on_files --input-file tests/format_comp/inputs/series_input.json --unitary-file tests/format_comp/inputs/series_unitary.json --output-dir demos/notebook_outputs --output-format same --eta 0.9 --topology Clements --time-dependent true
+```
+
+In single-file mode, the covariance input is expected to contain a time series of the form `{{t1, cov1}, {t2, cov2}, ...}` and the unitary file may contain either one single matrix or a matching time series `{{t1, U1}, {t2, U2}, ...}`. Native output is written back in the same file format as the input, and `output_format="wl"` additionally writes a Wolfram Language export.
+
+For `.txt` files, LoGIC automatically detects `json style`, `wolfram style`, or `matlab style` text and issues a warning because plain-text matrix files are more ambiguous than native structured formats. Unknown `.txt` styles raise a clear error.
 
 ## API highlight
 
@@ -85,8 +95,9 @@ For `topology="embedded_reck"`, the code first computes a Reck decomposition, tr
 
 ## Notes
 
-- Requires Python 3.10+ and the `interferometer` package (installed via `requirements.txt`).
+- Requires Python 3.10+ and the packages listed in `requirements.txt`.
 - The Python API and demo CLIs support `Clements`, `Reck`, and `embedded_reck`.
+- `run_on_files(...)` supports `.mtx` directory mode plus single-file `.json`, `.pickle`, `.npz`, `.h5py`, and `.txt` workflows.
 - If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.
 
 ## DISCLAIMER

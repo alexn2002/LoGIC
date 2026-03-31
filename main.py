@@ -29,15 +29,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--input-dir",
-        required=True,
         type=Path,
         help="Directory containing input covariance files named input_cov###.mtx.",
     )
     run_parser.add_argument(
         "--unitary-dir",
-        required=True,
         type=Path,
         help="Directory containing unitary/symplectic .mtx files.",
+    )
+    run_parser.add_argument(
+        "--input-file",
+        type=Path,
+        help="Single non-.mtx input file containing a time series of covariance matrices.",
+    )
+    run_parser.add_argument(
+        "--unitary-file",
+        type=Path,
+        help="Single non-.mtx unitary/symplectic file containing either one matrix or a time series of matrices.",
     )
     run_parser.add_argument(
         "--output-dir",
@@ -47,9 +55,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--output-format",
-        default="mtx",
-        choices=("mtx", "wl"),
-        help="Output format to write.",
+        default=None,
+        choices=("mtx", "wl", "same", "auto"),
+        help="Output selection. In single-file mode, 'same'/'auto' writes the native format and 'wl' also exports .wl.",
     )
     run_parser.add_argument(
         "--eta",
@@ -77,6 +85,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional total Clements mesh size for embedded_reck.",
     )
+    run_parser.add_argument(
+        "--write-wl",
+        type=_parse_bool,
+        default=False,
+        metavar="BOOL",
+        help="In single-file mode, additionally write a .wl export alongside the native output.",
+    )
 
     return parser
 
@@ -95,6 +110,9 @@ def main() -> None:
             output_format=args.output_format,
             time_dependent_unitary=args.time_dependent,
             embedded_total_modes=args.embedded_total_modes,
+            input_file=args.input_file,
+            unitary_file=args.unitary_file,
+            write_wl=args.write_wl,
         )
         for key, value in result.items():
             print(f"{key}: {value}")

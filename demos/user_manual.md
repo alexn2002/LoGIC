@@ -190,10 +190,10 @@ run_on_files(...)
 ```
 
 Purpose
-- Load input covariance matrices from `.mtx` files
-- Load a unitary or symplectic process matrix from `.mtx` files
+- Load input covariance matrices from `.mtx` directories or supported single-file formats
+- Load a unitary or symplectic process matrix from `.mtx` directories or supported single-file formats
 - Propagate each input with `get_Vout(...)`
-- Write output either as one `.mtx` covariance file per input or as one aggregated Wolfram Language `.wl` file
+- Write output either in the native input format or as a Wolfram Language `.wl` export
 
 Typical use
 
@@ -213,12 +213,14 @@ result = run_on_files(
 ```
 
 Arguments
-- `input_dir`: directory containing input covariance files
-- `matrix_dir`: directory containing unitary or symplectic `.mtx` files
+- `input_dir`: directory containing input covariance files for the `.mtx` workflow
+- `matrix_dir`: directory containing unitary or symplectic `.mtx` files for the `.mtx` workflow
+- `input_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` covariance file
+- `unitary_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` unitary or symplectic file
 - `eta`: loss transmissivity passed to `get_Vout(...)`
 - `topology`: `Clements`, `Reck`, or `embedded_reck`
 - `output_dir`: root directory where the requested output format is written
-- `output_format`: `"mtx"` or `"wl"`; selects which output format is written
+- `output_format`: in `.mtx` mode use `"mtx"` or `"wl"`; in single-file mode the native format is preserved automatically and `"wl"` additionally writes a `.wl` export
 - `time_dependent_unitary`: if `True`, use strict per-time-step matrix matching
 - `embedded_total_modes`: optional total Clements mesh size for `embedded_reck`
 
@@ -233,6 +235,34 @@ Output conventions
   - `embedded_reck_001_ETA090.mtx`
 - If `output_format="wl"`, one aggregated `.wl` file is written to:
   - `<output_dir>/<Topology>_ETA090.wl`
+- In single-file mode, native output is written in the same file format as the input file:
+  - `<output_dir>/<Topology>_ETA090.json`
+  - `<output_dir>/<Topology>_ETA090.pickle`
+  - `<output_dir>/<Topology>_ETA090.npz`
+  - `<output_dir>/<Topology>_ETA090.h5py`
+  - `<output_dir>/<Topology>_ETA090.txt`
+
+Single-file format conventions
+- Supported native single-file input types are:
+  - `.json`
+  - `.pickle`
+  - `.npz`
+  - `.h5py`
+  - `.txt`
+- In single-file mode, the covariance input is expected to contain a time series of the form:
+  - `{{t1, cov1}, {t2, cov2}, ...}`
+- The unitary or symplectic file may contain either:
+  - one single matrix for the time-independent case, or
+  - a matching time series `{{t1, U1}, {t2, U2}, ...}` for the time-dependent case
+- The output preserves the same logical structure, so the generated file can be used as input to `run_on_files(...)` again.
+
+`.txt` file handling
+- For `.txt` inputs, the wrapper automatically tries to identify one of three styles:
+  - `json style`
+  - `wolfram style`
+  - `matlab style`
+- If a supported style is detected, the wrapper emits a warning explaining that plain-text matrix files may be ambiguous and that native formats are preferred.
+- If the style cannot be identified, the wrapper raises a clear error instead of guessing.
 
 CLI access
 
@@ -242,15 +272,24 @@ The same wrapper is also exposed through the top-level command line entry point 
 python ./main.py run_on_files --input-dir ./demos/input_covariance_mtx --unitary-dir ./demos/interferometer_symplectic --output-dir ./demos/notebook_outputs --output-format wl --eta 0.9 --topology Clements --time-dependent false
 ```
 
+Single-file JSON example:
+
+```bash
+python ./main.py run_on_files --input-file ./tests/format_comp/inputs/series_input.json --unitary-file ./tests/format_comp/inputs/series_unitary.json --output-dir ./demos/notebook_outputs --output-format same --eta 0.9 --topology Clements --time-dependent true
+```
+
 CLI arguments
 - `--input-dir`: directory containing `input_cov###.mtx` files
 - `--unitary-dir`: directory containing `unitary*.mtx` or `symplectic*.mtx` files
+- `--input-file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` covariance file
+- `--unitary-file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` unitary or symplectic file
 - `--output-dir`: destination directory for the selected output format
-- `--output-format`: `mtx` or `wl`
+- `--output-format`: `mtx` or `wl` in `.mtx` mode, and `same`/`auto` or `wl` in single-file mode
 - `--eta`: loss transmissivity passed to `get_Vout(...)`
 - `--topology`: `Clements`, `Reck`, or `embedded_reck`
 - `--time-dependent`: boolean flag value such as `true` or `false`
 - `--embedded-total-modes`: optional total Clements mesh size for `embedded_reck`
+- `--write-wl`: in single-file mode, additionally write a `.wl` export alongside the native output
 
 Matrix format conventions
 - Input covariance matrices must be Gaussian covariance matrices of shape `2n x 2n`

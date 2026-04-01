@@ -202,6 +202,27 @@ def _normalize_suffix(path: Path) -> str:
     return suffix
 
 
+_SINGLE_FILE_SUFFIXES = {".json", ".pickle", ".npz", ".h5py", ".txt", ".wl"}
+_ALL_OUTPUT_SUFFIXES = {".mtx", *_SINGLE_FILE_SUFFIXES}
+
+
+def _normalize_output_format_option(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"auto", "same"}:
+        return "same"
+    if not normalized:
+        return None
+    if not normalized.startswith("."):
+        normalized = f".{normalized}"
+    if normalized == ".pkl":
+        normalized = ".pickle"
+    if normalized in {".h5", ".hdf5"}:
+        normalized = ".h5py"
+    return normalized
+
+
 def _json_to_matrix(value):
     if isinstance(value, dict) and {"real", "imag"} <= set(value):
         real = np.asarray(value["real"], dtype=float)
@@ -307,8 +328,31 @@ def _time_array_for_storage(times: list[object]) -> np.ndarray:
         return np.asarray(normalized, dtype=object)
 
 
+def _looks_like_wolfram_in_json(text: str) -> bool:
+    snippet = text.lstrip()
+    if not snippet or snippet[0] != "{":
+        return False
+
+    second = next((char for char in snippet[1:] if not char.isspace()), "")
+    return second != '"'
+
+
+def _load_wolfram_payload(path: Path):
+    text = path.read_text(encoding="utf-8")
+    return ast.literal_eval(_pythonize_wolfram_text(text))
+
+
 def _load_json_payload(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    if _looks_like_wolfram_in_json(text[:4096]):
+        warnings.warn(
+            f"File '{path.name}' has a .json suffix but starts with Wolfram-style braces. "
+            "It will be parsed as Wolfram Language text instead. "
+            "Prefer using the .wl or .txt suffix for this kind of file.",
+            stacklevel=3,
+        )
+        return _load_wolfram_payload(path)
+    return json.loads(text)
 
 
 def _identify_txt_style(text: str) -> str:
@@ -500,6 +544,8 @@ def _load_single_file_payload(path: Path):
     suffix = _normalize_suffix(path)
     if suffix == ".txt":
         return _load_txt_payload(path)
+    if suffix == ".wl":
+        return _load_wolfram_payload(path), "wolfram_style"
     if suffix == ".json":
         return _load_json_payload(path), None
     if suffix == ".pickle":
@@ -509,7 +555,7 @@ def _load_single_file_payload(path: Path):
     if suffix == ".h5py":
         return _load_h5_payload(path), None
     raise ValueError(
-        f"Unsupported file format '{path.suffix}'. Supported formats are .mtx, .json, .pickle, .npz, .h5py, and .txt."
+        f"Unsupported file format '{path.suffix}'. Supported formats are .mtx, .json, .pickle, .npz, .h5py, .txt, and .wl."
     )
 
 
@@ -640,6 +686,9 @@ def _write_txt_time_series(path: Path, series: list[tuple[object, np.ndarray]], 
 
 def _write_native_time_series(path: Path, series: list[tuple[object, np.ndarray]], *, txt_style: str | None = None) -> None:
     suffix = _normalize_suffix(path)
+    if suffix == ".wl":
+        path.write_text(_time_series_to_wl(series), encoding="utf-8")
+        return
     if suffix == ".txt":
         _write_txt_time_series(path, series, style=txt_style)
         return
@@ -673,6 +722,23 @@ def _time_series_to_wl(series: list[tuple[object, np.ndarray]]) -> str:
     for time_val, matrix in series:
         rows.append("{" + _wl_atom(time_val) + "," + _matrix_to_wl(np.asarray(matrix, dtype=complex)) + "}")
     return "{\n" + ",\n".join(rows) + "\n}"
+
+
+def _single_file_output_path(
+    output_root: Path,
+    topology_label: str,
+    eta_tag: str,
+    *,
+    requested_format: str | None,
+    input_suffix: str,
+) -> tuple[Path, str]:
+    suffix = input_suffix if requested_format in {None, "same"} else requested_format
+    if suffix not in _SINGLE_FILE_SUFFIXES:
+        raise ValueError(
+            "Single-file mode supports output_format='same' or one of "
+            ".json, .pickle, .npz, .h5py, .txt, .wl."
+        )
+    return output_root / f"{topology_label}_{eta_tag}{suffix}", suffix
 
 
 def _normalize_topology_label(topology: str) -> str:
@@ -766,7 +832,6 @@ def run_on_files(
     embedded_total_modes: int | None = None,
     input_file: Path | str | None = None,
     unitary_file: Path | str | None = None,
-    write_wl: bool = False,
 ) -> dict[str, Path]:
     """
     High-level wrapper for propagating covariance inputs through a shared or
@@ -776,7 +841,7 @@ def run_on_files(
     Other supported formats use a single input file and a single unitary file.
     """
     topology_label = _normalize_topology_label(topology)
-    output_format_normalized = output_format.lower() if output_format is not None else None
+    output_format_normalized = _normalize_output_format_option(output_format)
 
     input_file_path = Path(input_file) if input_file is not None else None
     unitary_file_path = Path(unitary_file) if unitary_file is not None else None
@@ -804,8 +869,11 @@ def run_on_files(
             raise FileNotFoundError(f"Matrix directory not found: {matrix_dir_path}")
 
     if use_single_file_mode:
-        if output_format_normalized not in {None, "auto", "same", "wl"}:
-            raise ValueError("Single-file mode supports output_format=None, 'auto', 'same', or 'wl'.")
+        if output_format_normalized not in {None, "same", *_SINGLE_FILE_SUFFIXES}:
+            raise ValueError(
+                "Single-file mode supports output_format='same' or one of "
+                ".json, .pickle, .npz, .h5py, .txt, .wl."
+            )
 
         native_suffix = _normalize_suffix(input_file_path)
         if output_dir is None:
@@ -815,7 +883,13 @@ def run_on_files(
         output_root.mkdir(parents=True, exist_ok=True)
 
         eta_tag = f"ETA{int(round(eta * 100)):03d}"
-        native_output_path = output_root / f"{topology_label}_{eta_tag}{native_suffix}"
+        output_path, output_suffix = _single_file_output_path(
+            output_root,
+            topology_label,
+            eta_tag,
+            requested_format=output_format_normalized,
+            input_suffix=native_suffix,
+        )
 
         input_series, input_txt_style = _load_input_series_from_file(input_file_path)
         unitary_spec, _ = _load_unitary_spec_from_file(
@@ -846,7 +920,6 @@ def run_on_files(
             ]
 
         output_series: list[tuple[object, np.ndarray]] = []
-        wl_series: list[tuple[object, np.ndarray]] = []
         for time_val, V0, U in work_items:
             if V0.ndim != 2 or V0.shape[0] != V0.shape[1] or V0.shape[0] % 2 != 0:
                 raise ValueError("Each covariance matrix in single-file mode must be an even square matrix.")
@@ -873,23 +946,19 @@ def run_on_files(
             )
             V_out_real = np.asarray(np.real_if_close(V_out), dtype=float)
             output_series.append((time_val, V_out_real))
-            if output_format_normalized == "wl" or write_wl:
-                wl_series.append((time_val, np.asarray(V_out, dtype=complex)))
-
-        _write_native_time_series(native_output_path, output_series, txt_style=input_txt_style)
-        result: dict[str, Path] = {"output_path": native_output_path}
-
-        if output_format_normalized == "wl" or write_wl:
-            wl_path = output_root / f"{topology_label}_{eta_tag}.wl"
-            wl_path.write_text(_time_series_to_wl(wl_series), encoding="utf-8")
-            result["wl_output_path"] = wl_path
-
-        return result
+        output_txt_style = input_txt_style if output_suffix == native_suffix else None
+        _write_native_time_series(output_path, output_series, txt_style=output_txt_style)
+        return {"output_path": output_path}
 
     if output_format_normalized is None:
-        output_format_normalized = "mtx"
-    if output_format_normalized not in {"mtx", "wl"}:
-        raise ValueError("Directory mode supports output_format='mtx' or 'wl'.")
+        output_format_normalized = ".mtx"
+    if output_format_normalized == "same":
+        output_format_normalized = ".mtx"
+    if output_format_normalized not in _ALL_OUTPUT_SUFFIXES:
+        raise ValueError(
+            "Directory mode supports output_format='.mtx' or one of "
+            ".json, .pickle, .npz, .h5py, .txt, .wl."
+        )
 
     input_files = sorted(input_dir_path.glob("input_cov*.mtx"))
     if not input_files:
@@ -903,16 +972,18 @@ def run_on_files(
         input_by_index[idx] = path
 
     if output_dir is None:
-        default_name = "output_covariance_mtx" if output_format_normalized == "mtx" else "output_covariance_wl"
+        default_name = (
+            "output_covariance_mtx" if output_format_normalized == ".mtx" else "output_covariance_files"
+        )
         output_root = Path(__file__).resolve().parent / "demos" / default_name
     else:
         output_root = Path(output_dir)
 
     eta_tag = f"ETA{int(round(eta * 100)):03d}"
     written_files: dict[str, Path] = {}
-    wl_matrices: list[str] = [] if output_format_normalized == "wl" else []
+    output_series: list[tuple[object, np.ndarray]] = []
 
-    if output_format_normalized == "mtx":
+    if output_format_normalized == ".mtx":
         output_target = output_root / topology_label
         output_target.mkdir(parents=True, exist_ok=True)
     else:
@@ -954,20 +1025,21 @@ def run_on_files(
             embedded_total_modes=embedded_total_modes,
         )
 
-        if output_format_normalized == "mtx":
+        if output_format_normalized == ".mtx":
             out_name = f"{topology_label}_{idx}_{eta_tag}.mtx"
             out_path = output_target / out_name
             mmwrite(out_path, np.asarray(V_out))
             written_files[idx] = out_path
         else:
-            wl_matrices.append(_matrix_to_wl(np.asarray(V_out, dtype=complex)))
+            V_out_real = np.asarray(np.real_if_close(V_out), dtype=float)
+            output_series.append((idx, V_out_real))
 
-    if output_format_normalized == "mtx":
+    if output_format_normalized == ".mtx":
         result = {"output_dir": output_target}
     else:
-        wl_path = output_target / f"{topology_label}_{eta_tag}.wl"
-        content = "{\n" + ",\n".join(wl_matrices) + "\n}"
-        wl_path.write_text(content, encoding="utf-8")
-        result = {"output_path": wl_path}
+        output_path = output_target / f"{topology_label}_{eta_tag}{output_format_normalized}"
+        txt_style = "json_style" if output_format_normalized == ".txt" else None
+        _write_native_time_series(output_path, output_series, txt_style=txt_style)
+        result = {"output_path": output_path}
 
     return result

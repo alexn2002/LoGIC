@@ -25,7 +25,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser(
         "run_on_files",
-        help="Propagate input covariance .mtx files through unitary/symplectic matrix files.",
+        help="Propagate covariance inputs from .mtx directories or supported single-file formats through unitary/symplectic data.",
     )
     run_parser.add_argument(
         "--input-dir",
@@ -40,12 +40,12 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--input-file",
         type=Path,
-        help="Single non-.mtx input file containing a time series of covariance matrices.",
+        help="Single non-.mtx input file (.json, .pickle, .npz, .h5py, .txt, or .wl) containing a time series of covariance matrices.",
     )
     run_parser.add_argument(
         "--unitary-file",
         type=Path,
-        help="Single non-.mtx unitary/symplectic file containing either one matrix or a time series of matrices.",
+        help="Single non-.mtx unitary/symplectic file (.json, .pickle, .npz, .h5py, .txt, or .wl) containing either one matrix or a time series of matrices.",
     )
     run_parser.add_argument(
         "--output-dir",
@@ -55,9 +55,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--output-format",
-        default=None,
-        choices=("mtx", "wl", "same", "auto"),
-        help="Output selection. In single-file mode, 'same'/'auto' writes the native format and 'wl' also exports .wl.",
+        default="same",
+        help=(
+            "Requested output format. Use 'same' (default) to preserve the input file type in single-file mode. "
+            "Otherwise choose one of: .mtx, .json, .pickle, .npz, .h5py, .txt, .wl "
+            "(dot-prefixed and bare names such as 'json' are both accepted)."
+        ),
     )
     run_parser.add_argument(
         "--eta",
@@ -85,14 +88,6 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional total Clements mesh size for embedded_reck.",
     )
-    run_parser.add_argument(
-        "--write-wl",
-        type=_parse_bool,
-        default=False,
-        metavar="BOOL",
-        help="In single-file mode, additionally write a .wl export alongside the native output.",
-    )
-
     return parser
 
 
@@ -112,7 +107,6 @@ def main() -> None:
             embedded_total_modes=args.embedded_total_modes,
             input_file=args.input_file,
             unitary_file=args.unitary_file,
-            write_wl=args.write_wl,
         )
         for key, value in result.items():
             print(f"{key}: {value}")

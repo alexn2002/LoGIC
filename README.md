@@ -54,7 +54,7 @@ python demos/demo_literature.py --input-dir demos/input_covariance_mtx --eta 0.9
 
 Results land in `demos/output_covariance_mtx/` (ignored by git).
 
-The same workflow is also available through a top-level CLI for [`pipeline.run_on_files(...)`](pipeline.py). The wrapper supports the original `.mtx` directory workflow and a newer single-file workflow for `.json`, `.pickle`, `.npz`, `.h5py`, and `.txt` files.
+The same workflow is also available through a top-level CLI for [`pipeline.run_on_files(...)`](pipeline.py). The wrapper supports the original `.mtx` directory workflow and a newer single-file workflow for `.json`, `.pickle`, `.npz`, `.h5py`, `.txt`, and `.wl` files.
 
 ```bash
 python main.py run_on_files --input-dir demos/input_covariance_mtx --unitary-dir demos/interferometer_symplectic --output-dir demos/notebook_outputs --output-format wl --eta 0.9 --topology Clements --time-dependent false
@@ -66,9 +66,9 @@ Example for the single-file JSON workflow:
 python main.py run_on_files --input-file tests/format_comp/inputs/series_input.json --unitary-file tests/format_comp/inputs/series_unitary.json --output-dir demos/notebook_outputs --output-format same --eta 0.9 --topology Clements --time-dependent true
 ```
 
-In single-file mode, the covariance input is expected to contain a time series of the form `{{t1, cov1}, {t2, cov2}, ...}` and the unitary file may contain either one single matrix or a matching time series `{{t1, U1}, {t2, U2}, ...}`. Native output is written back in the same file format as the input, and `output_format="wl"` additionally writes a Wolfram Language export.
+In single-file mode, the covariance input is expected to contain a time series of the form `{{t1, cov1}, {t2, cov2}, ...}` and the unitary file may contain either one single matrix or a matching time series `{{t1, U1}, {t2, U2}, ...}`. By default, `output_format="same"` preserves the input file type. You can also request any supported output format explicitly: `.json`, `.pickle`, `.npz`, `.h5py`, `.txt`, or `.wl`. In `.mtx` directory mode, `output_format` can be `.mtx` or any of those aggregated single-file formats.
 
-For `.txt` files, LoGIC automatically detects `json style`, `wolfram style`, or `matlab style` text and issues a warning because plain-text matrix files are more ambiguous than native structured formats. Unknown `.txt` styles raise a clear error.
+For `.txt` files, LoGIC automatically detects `json style`, `wolfram style`, or `matlab style` text and issues a warning because plain-text matrix files are more ambiguous than native structured formats. Unknown `.txt` styles raise a clear error. If a file has a `.json` suffix but begins with Wolfram-style braces, LoGIC automatically falls back to the Wolfram parser and warns that `.wl` or `.txt` would be a better suffix.
 
 ## API highlight
 

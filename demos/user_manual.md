@@ -193,7 +193,7 @@ Purpose
 - Load input covariance matrices from `.mtx` directories or supported single-file formats
 - Load a unitary or symplectic process matrix from `.mtx` directories or supported single-file formats
 - Propagate each input with `get_Vout(...)`
-- Write output either in the native input format or as a Wolfram Language `.wl` export
+- Write output in any supported format, with `same` preserving the input type in single-file mode
 
 Typical use
 
@@ -215,17 +215,17 @@ result = run_on_files(
 Arguments
 - `input_dir`: directory containing input covariance files for the `.mtx` workflow
 - `matrix_dir`: directory containing unitary or symplectic `.mtx` files for the `.mtx` workflow
-- `input_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` covariance file
-- `unitary_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` unitary or symplectic file
+- `input_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, `.txt`, or `.wl` covariance file
+- `unitary_file`: single `.json`, `.pickle`, `.npz`, `.h5py`, `.txt`, or `.wl` unitary or symplectic file
 - `eta`: loss transmissivity passed to `get_Vout(...)`
 - `topology`: `Clements`, `Reck`, or `embedded_reck`
 - `output_dir`: root directory where the requested output format is written
-- `output_format`: in `.mtx` mode use `"mtx"` or `"wl"`; in single-file mode the native format is preserved automatically and `"wl"` additionally writes a `.wl` export
+- `output_format`: use `"same"` by default, or request any supported format explicitly: `".mtx"`, `".json"`, `".pickle"`, `".npz"`, `".h5py"`, `".txt"`, or `".wl"`; bare names such as `"json"` or `"wl"` also work
 - `time_dependent_unitary`: if `True`, use strict per-time-step matrix matching
 - `embedded_total_modes`: optional total Clements mesh size for `embedded_reck`
 
 Output conventions
-- If `output_format="mtx"`, results are written into a topology subfolder:
+- If `output_format="mtx"` or `output_format=".mtx"`, results are written into a topology subfolder:
   - `<output_dir>/Clements/`
   - `<output_dir>/Reck/`
   - `<output_dir>/embedded_reck/`
@@ -233,14 +233,15 @@ Output conventions
   - `Clements_001_ETA090.mtx`
   - `Reck_001_ETA090.mtx`
   - `embedded_reck_001_ETA090.mtx`
-- If `output_format="wl"`, one aggregated `.wl` file is written to:
-  - `<output_dir>/<Topology>_ETA090.wl`
-- In single-file mode, native output is written in the same file format as the input file:
+- If `output_format` is one of `".json"`, `".pickle"`, `".npz"`, `".h5py"`, `".txt"`, or `".wl"`, one aggregated file is written to:
+  - `<output_dir>/<Topology>_ETA090.<suffix>`
+- In single-file mode, `output_format="same"` preserves the input file format:
   - `<output_dir>/<Topology>_ETA090.json`
   - `<output_dir>/<Topology>_ETA090.pickle`
   - `<output_dir>/<Topology>_ETA090.npz`
   - `<output_dir>/<Topology>_ETA090.h5py`
   - `<output_dir>/<Topology>_ETA090.txt`
+  - `<output_dir>/<Topology>_ETA090.wl`
 
 Single-file format conventions
 - Supported native single-file input types are:
@@ -249,8 +250,9 @@ Single-file format conventions
   - `.npz`
   - `.h5py`
   - `.txt`
+  - `.wl`
 - In single-file mode, the covariance input is expected to contain a time series of the form:
-  - `{{t1, cov1}, {t2, cov2}, ...}`
+  - `{{t1, cov1}, {t2, cov2}, ...}` (braket type depends on file type)
 - The unitary or symplectic file may contain either:
   - one single matrix for the time-independent case, or
   - a matching time series `{{t1, U1}, {t2, U2}, ...}` for the time-dependent case
@@ -263,6 +265,7 @@ Single-file format conventions
   - `matlab style`
 - If a supported style is detected, the wrapper emits a warning stating which style was detected and that native file types are preferred, the code will continue to run with the detected style
 - Else the wrapper emits an error and stops
+- If a file has a `.json` suffix but starts with Wolfram-style braces, LoGIC automatically parses it with the Wolfram reader and issues a warning recommending the `.wl` or `.txt` suffix instead.
 
 CLI access
 
@@ -284,13 +287,11 @@ CLI arguments
 - `--input-file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` covariance file
 - `--unitary-file`: single `.json`, `.pickle`, `.npz`, `.h5py`, or `.txt` unitary or symplectic file
 - `--output-dir`: destination directory for the selected output format
-- `--output-format`: `mtx` or `wl` in `.mtx` mode, and `same`/`auto` or `wl` in single-file mode
+- `--output-format`: use `same` by default, or request `.mtx`, `.json`, `.pickle`, `.npz`, `.h5py`, `.txt`, or `.wl`; bare names such as `json` and `wl` are also accepted
 - `--eta`: loss transmissivity passed to `get_Vout(...)`
 - `--topology`: `Clements`, `Reck`, or `embedded_reck`
 - `--time-dependent`: boolean flag value such as `true` or `false`
 - `--embedded-total-modes`: optional total Clements mesh size for `embedded_reck`
-- `--write-wl`: in single-file mode, additionally write a `.wl` export alongside the native output
-
 Matrix format conventions
 - Input covariance matrices must be Gaussian covariance matrices of shape `2n x 2n`
 - If the matrix file is a symplectic file, it must also have shape `2n x 2n`

@@ -119,7 +119,7 @@ For `topology="embedded_reck"`, the code first computes a Reck decomposition, tr
 - The Python API and demo CLIs support `Clements`, `Reck`, and `embedded_reck`.
 - `run_on_files(...)` supports `.mtx` directory mode plus single-file `.json`, `.pickle`, `.npz`, `.h5py`, and `.txt` workflows.
 - If you regenerate results, `demos/output_covariance_mtx/` and `demos/logs/` will be overwritten; commit only the inputs you care about.
-- The current PyPI prerelease version is `0.1.0rc4`, corresponding to the GitHub prerelease tag `v0.1.0-rc.4`.
+- The current PyPI prerelease version is `0.1.0rc3`, corresponding to the GitHub prerelease tag `v0.1.0-rc.3`.
 
 ## DISCLAIMER
 We observed hardware-dependent numerical differences when simulating large beam splitter networks in finite precision. In particular, using the same code version of [demos/demo_literature.py](demos/demo_literature.py) on different machines produced output covariance matrices whose *difference* had a Frobenius norm on the order of 1e-2 for the 25×25 case. Repeated runs on the same machine did not show such deviations. These differences did not materially affect the information‑theoretic analysis in [D'Achille et al.][paper], for which this code was developed.

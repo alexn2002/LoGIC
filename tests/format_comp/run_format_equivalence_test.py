@@ -17,6 +17,7 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 import sys
+import shutil
 import time
 
 import numpy as np
@@ -38,7 +39,7 @@ from pipeline import _load_input_series_from_file, _write_native_time_series, ru
 # Change this by hand to test a different number of modes.
 N_MODES = 25
 
-ETA = 0.9
+ETA = 1.0
 TIME_VALUE = 0.0
 TOPOLOGIES = ("Clements", "Reck", "embedded_reck")
 TOL = 1e-14
@@ -67,6 +68,12 @@ def unitary_to_symplectic(U: np.ndarray) -> np.ndarray:
 
 
 def ensure_clean_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def reset_directory(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -140,8 +147,8 @@ def compare_series(
 
 def main() -> None:
     print(f"Generating fresh format-equivalence fixtures in {ROOT}")
-    ensure_clean_dir(INPUTS)
-    ensure_clean_dir(OUTPUTS)
+    reset_directory(INPUTS)
+    reset_directory(OUTPUTS)
 
     U = random_unitary(N_MODES)
     S = unitary_to_symplectic(U)

@@ -17,6 +17,7 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 import sys
+import time
 
 import numpy as np
 from scipy.io import mmread, mmwrite
@@ -35,9 +36,9 @@ from pipeline import _load_input_series_from_file, _write_native_time_series, ru
 
 
 # Change this by hand to test a different number of modes.
-N_MODES = 3
+N_MODES = 25
 
-ETA = 1.0
+ETA = 0.9
 TIME_VALUE = 0.0
 TOPOLOGIES = ("Clements", "Reck", "embedded_reck")
 TOL = 1e-14
@@ -214,7 +215,11 @@ def main() -> None:
                     "output_format": ".mtx" if label.startswith("mtx_") else "same",
                 }
             )
+
+            _time_start = time.perf_counter()
             result = run_on_files(**call_kwargs)
+            _time_end = time.perf_counter()
+            print(f"{label:>16}: completed in {_time_end - _time_start:.2f} seconds")
             output_path = result.get("output_dir", result.get("output_path"))
             candidate_series = load_series_from_output(output_path)
             max_abs_diff = compare_series(truth_series, candidate_series)

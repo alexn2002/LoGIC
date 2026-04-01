@@ -21,3 +21,5 @@ demos/notebook_outputs
 demos/output_covariance_wl
 Notebook_for_Dario.ipynb
 Dario_requirements.txt
+tests/format_comp/inputs/
+tests/format_comp/generated_outputs/

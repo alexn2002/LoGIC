@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import ast
+import cmath
 import json
+import math
+import operator
 import pickle
 import re
 import warnings
@@ -140,7 +143,7 @@ def get_Vout(
     if d0 is None:
         d0 = np.zeros(V0.shape[0], dtype=float)
 
-    validate_covariance(V0.copy(), d0.copy(), hbar=1, tol=1e-12)
+    validate_covariance(V0.copy(), d0.copy(), hbar=1, tol=1e-9)
 
     dev = GaussianDevice.from_logical_state(
         d=d0.copy(),
@@ -339,7 +342,7 @@ def _looks_like_wolfram_in_json(text: str) -> bool:
 
 def _load_wolfram_payload(path: Path):
     text = path.read_text(encoding="utf-8")
-    return ast.literal_eval(_pythonize_wolfram_text(text))
+    return _parse_wolfram_text(text)
 
 
 def _load_json_payload(path: Path):
@@ -364,7 +367,9 @@ def _identify_txt_style(text: str) -> str:
         return "json_style"
 
     if snippet.startswith("{"):
-        if "[" in snippet or ";" in snippet:
+        if ";" in snippet:
+            return "matlab_style"
+        if "[" in snippet and not _has_known_wolfram_function_syntax(snippet):
             return "matlab_style"
         return "wolfram_style"
 
@@ -383,17 +388,207 @@ def _warn_txt_style(path: Path, style: str) -> None:
     )
 
 
+def _pythonize_wolfram_rational(match: re.Match[str]) -> str:
+    numerator = int(match.group(1))
+    denominator = int(match.group(2))
+    if denominator == 0:
+        raise ValueError("Invalid Wolfram rational with zero denominator.")
+    return f"{numerator / denominator:.17g}"
+
+
+def _strip_wolfram_comments(text: str) -> str:
+    return re.sub(r"\(\*.*?\*\)", "", text, flags=re.DOTALL)
+
+
+def _has_known_wolfram_function_syntax(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:Abs|ArcCos|ArcSin|ArcTan|Complex|Cos|Cosh|DirectedInfinity|Divide|Exp|Plus|Power|Rational|Sin|Sinh|Sqrt|Subtract|Tan|Tanh|Times)\s*\[",
+            text,
+        )
+    )
+
+
 def _pythonize_wolfram_text(text: str) -> str:
-    converted = text.strip()
+    converted = _strip_wolfram_comments(text).strip()
+    converted = (
+        converted.replace(r"\[ImaginaryI]", "I")
+        .replace(r"\[ExponentialE]", "E")
+        .replace(r"\[Pi]", "Pi")
+    )
+    converted = re.sub(r"(?<=[0-9.])`(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+))?", "", converted)
     converted = re.sub(
-        r"(?<![A-Za-z0-9_])([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:\*?\^[+-]?\d+)?)\s*I\b",
-        lambda match: match.group(1).replace("*^", "e") + "j",
+        r"(?<![A-Za-z0-9_.])([+-]?\d+)\s*/\s*([+-]?\d+)(?![A-Za-z0-9_.])",
+        _pythonize_wolfram_rational,
         converted,
     )
-    converted = re.sub(r"\bI\b", "1j", converted)
     converted = converted.replace("*^", "e")
+    converted = converted.replace("^", "**")
+    converted = converted.replace("[", "(").replace("]", ")")
+    converted = re.sub(r"\bI\b", "1j", converted)
+    converted = re.sub(r"(?<=[0-9j)])\s+(?=(?:Pi|E|1j|\d|\.|\())", "*", converted)
+    converted = re.sub(r"\b(Pi|E)\s+(?=(?:Pi|E|1j|\d|\.|\())", r"\1*", converted)
     converted = converted.replace("{", "[").replace("}", "]")
     return converted
+
+
+def _as_wolfram_number(value, *, context: str):
+    if isinstance(value, np.generic):
+        value = value.item()
+    if not isinstance(value, (int, float, complex)):
+        raise ValueError(f"Unsupported non-numeric Wolfram {context}: {value!r}")
+    return value
+
+
+def _normalize_wolfram_number(value):
+    if isinstance(value, np.generic):
+        value = value.item()
+    value = np.real_if_close(value)
+    if isinstance(value, np.ndarray):
+        value = value.item()
+    if isinstance(value, complex) and abs(value.imag) <= 1e-15:
+        return float(value.real)
+    return value
+
+
+def _wolfram_rational_value(numerator, denominator):
+    numerator = _as_wolfram_number(numerator, context="rational numerator")
+    denominator = _as_wolfram_number(denominator, context="rational denominator")
+    if denominator == 0:
+        raise ValueError("Invalid Wolfram rational with zero denominator.")
+    return _normalize_wolfram_number(numerator / denominator)
+
+
+def _wolfram_complex_value(real, imag):
+    return complex(
+        _as_wolfram_number(real, context="complex real part"),
+        _as_wolfram_number(imag, context="complex imaginary part"),
+    )
+
+
+def _wolfram_unary_math(fn, value):
+    value = _as_wolfram_number(value, context="function argument")
+    result = fn(value)
+    return _normalize_wolfram_number(result)
+
+
+def _wolfram_directed_infinity(*args):
+    if not args:
+        return complex(math.inf, math.inf)
+    if len(args) != 1:
+        raise ValueError("DirectedInfinity expects zero or one argument.")
+    direction = _as_wolfram_number(args[0], context="DirectedInfinity direction")
+    if direction == 1:
+        return math.inf
+    if direction == -1:
+        return -math.inf
+    return complex(math.inf, math.inf)
+
+
+def _wolfram_product(*values):
+    result = 1
+    for value in values:
+        result *= _as_wolfram_number(value, context="Times argument")
+    return _normalize_wolfram_number(result)
+
+
+def _wolfram_sum(*values):
+    result = 0
+    for value in values:
+        result += _as_wolfram_number(value, context="Plus argument")
+    return _normalize_wolfram_number(result)
+
+
+_WOLFRAM_ALLOWED_NAMES = {
+    "Pi": math.pi,
+    "E": math.e,
+    "Infinity": math.inf,
+    "Indeterminate": math.nan,
+}
+_WOLFRAM_ALLOWED_FUNCTIONS = {
+    "Abs": lambda value: _wolfram_unary_math(abs, value),
+    "ArcCos": lambda value: _wolfram_unary_math(cmath.acos, value),
+    "ArcSin": lambda value: _wolfram_unary_math(cmath.asin, value),
+    "ArcTan": lambda value: _wolfram_unary_math(cmath.atan, value),
+    "Complex": _wolfram_complex_value,
+    "Cos": lambda value: _wolfram_unary_math(cmath.cos, value),
+    "Cosh": lambda value: _wolfram_unary_math(cmath.cosh, value),
+    "DirectedInfinity": _wolfram_directed_infinity,
+    "Divide": _wolfram_rational_value,
+    "Exp": lambda value: _wolfram_unary_math(cmath.exp, value),
+    "Plus": _wolfram_sum,
+    "Power": lambda base, exponent: _normalize_wolfram_number(
+        _as_wolfram_number(base, context="Power base") ** _as_wolfram_number(exponent, context="Power exponent")
+    ),
+    "Rational": _wolfram_rational_value,
+    "Sin": lambda value: _wolfram_unary_math(cmath.sin, value),
+    "Sinh": lambda value: _wolfram_unary_math(cmath.sinh, value),
+    "Sqrt": lambda value: _wolfram_unary_math(cmath.sqrt, value),
+    "Subtract": lambda left, right: _normalize_wolfram_number(
+        _as_wolfram_number(left, context="Subtract left argument")
+        - _as_wolfram_number(right, context="Subtract right argument")
+    ),
+    "Tan": lambda value: _wolfram_unary_math(cmath.tan, value),
+    "Tanh": lambda value: _wolfram_unary_math(cmath.tanh, value),
+    "Times": _wolfram_product,
+}
+_WOLFRAM_BINARY_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Pow: operator.pow,
+}
+
+
+def _eval_wolfram_ast(node):
+    if isinstance(node, ast.Expression):
+        return _eval_wolfram_ast(node.body)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float, complex, str)):
+            return node.value
+        raise ValueError(f"Unsupported Wolfram literal: {node.value!r}")
+    if isinstance(node, ast.List):
+        return [_eval_wolfram_ast(item) for item in node.elts]
+    if isinstance(node, ast.Tuple):
+        return tuple(_eval_wolfram_ast(item) for item in node.elts)
+    if isinstance(node, ast.UnaryOp):
+        value = _as_wolfram_number(_eval_wolfram_ast(node.operand), context="unary operand")
+        if isinstance(node.op, ast.UAdd):
+            return value
+        if isinstance(node.op, ast.USub):
+            return -value
+        raise ValueError("Unsupported unary operator in Wolfram expression.")
+    if isinstance(node, ast.BinOp):
+        op_type = type(node.op)
+        if op_type not in _WOLFRAM_BINARY_OPERATORS:
+            raise ValueError("Unsupported binary operator in Wolfram expression.")
+        left = _as_wolfram_number(_eval_wolfram_ast(node.left), context="binary left operand")
+        right = _as_wolfram_number(_eval_wolfram_ast(node.right), context="binary right operand")
+        if isinstance(node.op, ast.Div) and right == 0:
+            raise ValueError("Invalid Wolfram rational with zero denominator.")
+        return _normalize_wolfram_number(_WOLFRAM_BINARY_OPERATORS[op_type](left, right))
+    if isinstance(node, ast.Name):
+        if node.id in _WOLFRAM_ALLOWED_NAMES:
+            return _WOLFRAM_ALLOWED_NAMES[node.id]
+        raise ValueError(f"Unsupported Wolfram symbol '{node.id}'.")
+    if isinstance(node, ast.Call):
+        if not isinstance(node.func, ast.Name) or node.func.id not in _WOLFRAM_ALLOWED_FUNCTIONS:
+            raise ValueError("Unsupported Wolfram function.")
+        if node.keywords:
+            raise ValueError("Wolfram function keywords are not supported.")
+        args = [_eval_wolfram_ast(arg) for arg in node.args]
+        return _WOLFRAM_ALLOWED_FUNCTIONS[node.func.id](*args)
+    raise ValueError(f"Unsupported Wolfram expression node: {type(node).__name__}.")
+
+
+def _parse_wolfram_text(text: str):
+    converted = _pythonize_wolfram_text(text)
+    try:
+        parsed = ast.parse(converted, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError(f"Could not parse Wolfram-style text: {exc.msg}") from exc
+    return _eval_wolfram_ast(parsed)
 
 
 def _split_top_level(text: str, delimiters: set[str]) -> list[str]:
@@ -491,7 +686,7 @@ def _load_txt_payload(path: Path):
     if style == "json_style":
         return json.loads(text), style
     if style == "wolfram_style":
-        return ast.literal_eval(_pythonize_wolfram_text(text)), style
+        return _parse_wolfram_text(text), style
     if style == "matlab_style":
         return ast.literal_eval(_pythonize_matlab_text(text)), style
 

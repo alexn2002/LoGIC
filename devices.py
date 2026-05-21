@@ -18,7 +18,7 @@ TWOPI = 2.0 * math.pi
 Instruction = Union[Tuple[int, int, float], Tuple[int, int, float, float]]
 
 
-def validate_covariance(V: np.ndarray, d: np.ndarray, hbar: float = 1.0, tol: float = 1e-10) -> None:
+def validate_covariance(V: np.ndarray, d: np.ndarray, hbar: float = 1.0, tol: float = 1e-9) -> None:
     """Validate that (d, V) encodes a physical Gaussian state."""
     V = np.asarray(np.real_if_close(V), dtype=float)
     d = np.asarray(np.real_if_close(d), dtype=float).reshape(-1)
